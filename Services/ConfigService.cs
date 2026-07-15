@@ -53,13 +53,18 @@ public static class ConfigService
         {
             case "server.host": config.Server.Host = value; break;
             case "server.port": config.Server.Port = int.Parse(value, culture); break;
+            case "server.auto_open_browser": config.Server.AutoOpenBrowser = bool.Parse(value); break;
             case "media.input_audio_dir": config.Media.InputAudioDir = value; break;
             case "media.main_video_dir": config.Media.MainVideoDir = value; break;
+            case "media.material_video_dir": config.Media.MaterialVideoDir = value; break;
+            case "media.common_video_file": config.Media.CommonVideoFile = value; break;
             case "audio.preferred_input": config.Audio.PreferredInput = value; break;
             case "audio.sample_rate": config.Audio.SampleRate = int.Parse(value, culture); break;
             case "audio.detection_window_seconds": config.Audio.DetectionWindowSeconds = int.Parse(value, culture); break;
             case "detection.interval_seconds": config.Detection.IntervalSeconds = int.Parse(value, culture); break;
             case "detection.confidence_threshold": config.Detection.ConfidenceThreshold = double.Parse(value, numberStyle, culture); break;
+            case "playback.detection_lost_timeout_seconds": config.Playback.DetectionLostTimeoutSeconds = int.Parse(value, culture); break;
+            case "playback.resync_tolerance_seconds": config.Playback.ResyncToleranceSeconds = double.Parse(value, numberStyle, culture); break;
             case "storage.database_path": config.Storage.DatabasePath = value; break;
             case "ffmpeg.path": config.Ffmpeg.Path = value; break;
             case "ffmpeg.ffprobe_path": config.Ffmpeg.FfprobePath = value; break;

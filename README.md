@@ -2,7 +2,7 @@
 
 Windows 11でLINE入力を監視し、登録動画の音声を検出して対応動画をブラウザ上で同期再生するオートVJプロトタイプです。
 
-現在は最小動作確認版の **M0** です。最終的な企画は `auto_vj_project_spec.md`、現在の実装仕様は `prototype_spec.md`、ユーザーからの次の指示は `prompt.md` を参照してください。
+現在は連続再生と入力操作を追加した **M0.1** です。最終的な企画は `auto_vj_project_spec.md`、現在の実装仕様は `prototype_spec.md`、ユーザーからの次の指示は `prompt.md` を参照してください。
 
 ## 現在できること
 
@@ -13,6 +13,11 @@ Windows 11でLINE入力を監視し、登録動画の音声を検出して対応
 - 8秒の音声窓を2秒ごとに登録曲へ照合
 - 検出曲、信頼度、推定位置をローカルWeb UIへ表示
 - 対応動画を推定位置から再生し、ずれが2秒を超えた場合に再同期
+- 起動直後と曲未検出時に `common_movie.mp4` を強制ループ再生
+- 検出を10秒間失った場合に汎用動画へ復帰
+- 入力信号レベルをdBメーターで表示
+- 監視中の音声入力を止めずに入力デバイスを切り替え
+- サーバー起動後にOS既定ブラウザで操作画面を自動表示
 - 映像領域のブラウザ全画面表示
 
 ## 必要環境
@@ -33,6 +38,9 @@ input-audio/
 
 main-videos/
 └─ 登録・再生対象の任意の名前.mp4
+
+material-videos/
+└─ common_movie.mp4
 ```
 
 指紋DBは `main-videos` のMP4に含まれる音声トラックだけから生成します。`input-audio` は本番の登録処理には使用せず、自己診断やLINE入力へ流す検出確認用です。MP3とMP4のファイル名を一致させる必要はありません。
@@ -57,7 +65,7 @@ dotnet restore --source https://api.nuget.org/v3/index.json
 dotnet run
 ```
 
-ブラウザで次を開きます。
+サーバー起動後、OS既定ブラウザで次のURLを自動的に開きます。自動表示に失敗した場合は手動で開いてください。
 
 ```text
 http://127.0.0.1:5180/
@@ -78,10 +86,13 @@ dotnet run -- --self-test
 | 設定 | 初期値 | 説明 |
 |---|---:|---|
 | `server.port` | `5180` | ローカルWeb UIのポート |
+| `server.auto_open_browser` | `true` | 起動時にOS既定ブラウザを開く |
 | `audio.sample_rate` | `11025` | 指紋処理用サンプルレート |
 | `audio.detection_window_seconds` | `8` | 1回の照合に使う音声長 |
 | `detection.interval_seconds` | `2` | 照合間隔 |
 | `detection.confidence_threshold` | `0.62` | 曲確定に必要な信頼度 |
+| `playback.detection_lost_timeout_seconds` | `10` | 未検出から汎用動画へ戻るまでの秒数 |
+| `playback.resync_tolerance_seconds` | `2` | 動画位置を再同期するずれの秒数 |
 
 ## 使用ライブラリ
 
@@ -93,8 +104,9 @@ dotnet run -- --self-test
 
 ## 現在の制限
 
-- 音声指紋はM0用の独自方式で、テンポ・ピッチ変更やミックスへの耐性は未調整です。
+- 音声指紋はM0.1用の独自方式で、テンポ・ピッチ変更やミックスへの耐性は未調整です。
 - WASAPIループバック入力は未実装です。現在はLINEなどの録音エンドポイントを使用します。
 - 動画出力はブラウザのHTML Videoです。専用Windows出力やDirect3D合成は未実装です。
 - 重ね合わせ、LAN公開、PIN認証、インストーラーは未実装です。
+- 動画切り替えは即時で、クロスフェードは未実装です。
 - `input-audio` の確認用ファイルと検出動画の正解対応はDBへ保存しません。自己診断ではしきい値以上で動画を検出できたかを確認します。

@@ -20,6 +20,12 @@ h2 { margin-top: 32px; font-size: 14px; color: #aab5bb; }
 .label, dt { color: #89959b; font-size: 12px; }
 .indicator { width: 11px; height: 11px; border-radius: 50%; background: #657078; box-shadow: 0 0 0 5px #65707822; }
 .indicator.active { background: #42e6ba; box-shadow: 0 0 0 5px #42e6ba22; }
+.input-controls { display: grid; gap: 8px; margin-top: 18px; }
+.input-controls label, .level-heading { color: #89959b; font-size: 12px; }
+select { width: 100%; padding: 10px; border: 1px solid #364047; border-radius: 7px; background: #20272c; color: inherit; }
+.level-heading { display: flex; justify-content: space-between; margin-top: 6px; }
+.level-meter { height: 10px; overflow: hidden; border-radius: 999px; background: #293137; }
+.level-meter span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #42e6ba 0 72%, #efc84a 72% 90%, #ee675d 90%); transition: width 100ms linear; }
 .metrics { display: grid; gap: 12px; margin: 22px 0; }
 .metrics div { display: flex; justify-content: space-between; gap: 20px; }
 .metrics dd { margin: 0; text-align: right; }

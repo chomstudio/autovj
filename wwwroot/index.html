@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AutoVJ M0</title>
+  <title>AutoVJ M0.1</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <main class="layout">
     <section class="stage" aria-label="映像出力">
-      <video id="output-video" muted playsinline></video>
-      <div id="idle-message" class="idle-message">音声入力を開始してください</div>
+      <video id="output-video" autoplay loop muted playsinline preload="auto"></video>
+      <div id="idle-message" class="idle-message" hidden>汎用動画を読み込めません</div>
     </section>
 
     <aside class="panel">
       <header>
-        <p class="eyebrow">AUTO VJ / M0</p>
+        <p class="eyebrow">AUTO VJ / M0.1</p>
         <h1>検出モニター</h1>
       </header>
 
@@ -24,6 +24,15 @@
         <div>
           <p class="label">入力状態</p>
           <p id="status-message">停止中</p>
+        </div>
+      </section>
+
+      <section class="input-controls">
+        <label for="device-select">入力デバイス</label>
+        <select id="device-select"></select>
+        <div class="level-heading"><span>入力信号</span><output id="level-value">-60.0 dB</output></div>
+        <div id="level-meter" class="level-meter" role="meter" aria-label="入力信号レベル" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="level-fill"></span>
         </div>
       </section>
 

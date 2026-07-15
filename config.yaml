@@ -1,10 +1,13 @@
 server:
   host: "127.0.0.1"
   port: 5180
+  auto_open_browser: true
 
 media:
   input_audio_dir: "input-audio"
   main_video_dir: "main-videos"
+  material_video_dir: "material-videos"
+  common_video_file: "common_movie.mp4"
 
 audio:
   preferred_input: "LINE (Yamaha AG03MK2)"
@@ -14,6 +17,10 @@ audio:
 detection:
   interval_seconds: 2
   confidence_threshold: 0.62
+
+playback:
+  detection_lost_timeout_seconds: 10
+  resync_tolerance_seconds: 2
 
 storage:
   database_path: "data/autovj.db"

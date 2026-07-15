@@ -6,6 +6,7 @@ public sealed class AppConfig
     public MediaConfig Media { get; } = new();
     public AudioConfig Audio { get; } = new();
     public DetectionConfig Detection { get; } = new();
+    public PlaybackConfig Playback { get; } = new();
     public StorageConfig Storage { get; } = new();
     public FfmpegConfig Ffmpeg { get; } = new();
 }
@@ -14,12 +15,15 @@ public sealed class ServerConfig
 {
     public string Host { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 5180;
+    public bool AutoOpenBrowser { get; set; } = true;
 }
 
 public sealed class MediaConfig
 {
     public string InputAudioDir { get; set; } = "input-audio";
     public string MainVideoDir { get; set; } = "main-videos";
+    public string MaterialVideoDir { get; set; } = "material-videos";
+    public string CommonVideoFile { get; set; } = "common_movie.mp4";
 }
 
 public sealed class AudioConfig
@@ -33,6 +37,12 @@ public sealed class DetectionConfig
 {
     public int IntervalSeconds { get; set; } = 2;
     public double ConfidenceThreshold { get; set; } = 0.62;
+}
+
+public sealed class PlaybackConfig
+{
+    public int DetectionLostTimeoutSeconds { get; set; } = 10;
+    public double ResyncToleranceSeconds { get; set; } = 2;
 }
 
 public sealed class StorageConfig

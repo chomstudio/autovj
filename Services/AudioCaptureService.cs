@@ -10,6 +10,8 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
     private readonly Queue<float> _samples = new();
     private WasapiCapture? _capture;
     private double _resampleAccumulator;
+    private double _smoothedLevel;
+    private string _selectedDeviceName = config.Audio.PreferredInput;
 
     public bool IsRunning => _capture is not null;
 
@@ -23,35 +25,36 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
             .ToList();
     }
 
-    // 設定名に一致するWASAPI録音デバイスから入力監視を開始します。
-    public void Start()
+    // 指定名または現在選択中のWASAPI録音デバイスから入力監視を開始します。
+    public void Start(string? requestedDeviceName = null)
     {
-        if (_capture is not null)
+        var targetName = ResolveDeviceName(requestedDeviceName ?? _selectedDeviceName);
+        if (_capture is not null && _selectedDeviceName.Equals(targetName, StringComparison.OrdinalIgnoreCase))
         {
             return;
+        }
+        if (_capture is not null)
+        {
+            Stop();
         }
 
         using var enumerator = new MMDeviceEnumerator();
         var device = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
-            .FirstOrDefault(candidate => candidate.FriendlyName.Equals(config.Audio.PreferredInput, StringComparison.OrdinalIgnoreCase))
-            ?? enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
-                .FirstOrDefault(candidate => candidate.FriendlyName.Contains(config.Audio.PreferredInput, StringComparison.OrdinalIgnoreCase));
-        if (device is null)
-        {
-            throw new InvalidOperationException($"録音デバイス '{config.Audio.PreferredInput}' が見つかりません。");
-        }
+            .First(candidate => candidate.FriendlyName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
         lock (_sampleLock)
         {
             _samples.Clear();
             _resampleAccumulator = 0;
+            _smoothedLevel = 0;
         }
 
+        _selectedDeviceName = device.FriendlyName;
         _capture = new WasapiCapture(device);
         _capture.DataAvailable += OnDataAvailable;
         _capture.RecordingStopped += OnRecordingStopped;
         _capture.StartRecording();
-        state.SetCapture(true, $"{device.FriendlyName} を監視中");
+        state.SetCapture(true, $"{device.FriendlyName} を監視中", device.FriendlyName);
         logger.LogInformation("音声入力を開始しました: {Device} / {Format}", device.FriendlyName, _capture.WaveFormat);
     }
 
@@ -66,6 +69,23 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
         capture.StopRecording();
         CleanupCapture(capture);
         state.SetCapture(false, "停止中");
+    }
+
+    // 選択デバイスを変更し、監視中であれば新しいデバイスで即座に再開します。
+    public void SelectDevice(string deviceName)
+    {
+        var resolvedName = ResolveDeviceName(deviceName);
+        var wasRunning = IsRunning;
+        if (wasRunning)
+        {
+            Stop();
+        }
+        _selectedDeviceName = resolvedName;
+        state.SetSelectedDevice(resolvedName);
+        if (wasRunning)
+        {
+            Start(resolvedName);
+        }
     }
 
     // 検出窓に必要な最新PCMサンプルをコピーして返します。
@@ -123,6 +143,24 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
                 _samples.Dequeue();
             }
         }
+
+        if (added.Count > 0)
+        {
+            var rms = Math.Sqrt(added.Sum(sample => sample * sample) / added.Count);
+            var decibels = Math.Max(-60, 20 * Math.Log10(Math.Max(rms, 0.000001)));
+            var normalized = Math.Clamp((decibels + 60) / 60, 0, 1);
+            _smoothedLevel = _smoothedLevel * 0.72 + normalized * 0.28;
+            state.SetInputLevel(_smoothedLevel, decibels);
+        }
+    }
+
+    // 大文字小文字を無視して完全一致、次に部分一致で実在デバイス名を解決します。
+    private string ResolveDeviceName(string requestedName)
+    {
+        var devices = GetDevices();
+        var resolved = devices.FirstOrDefault(name => name.Equals(requestedName, StringComparison.OrdinalIgnoreCase))
+            ?? devices.FirstOrDefault(name => name.Contains(requestedName, StringComparison.OrdinalIgnoreCase));
+        return resolved ?? throw new InvalidOperationException($"録音デバイス '{requestedName}' が見つかりません。");
     }
 
     // 録音形式に応じて1サンプルを-1から1のfloatへ変換します。

@@ -1,5 +1,6 @@
 using AutoVJ.Models;
 using AutoVJ.Services;
+using System.Diagnostics;
 
 var configPath = Path.Combine(Directory.GetCurrentDirectory(), "config.yaml");
 var config = ConfigService.Load(configPath);
@@ -38,6 +39,13 @@ if (args.Contains("--self-test", StringComparer.OrdinalIgnoreCase))
 // 現在の検出状態をブラウザへ返します。
 app.MapGet("/api/status", (RuntimeState state) => Results.Ok(state.GetSnapshot()));
 
+// ブラウザ側の再生制御に必要な公開設定だけを返します。
+app.MapGet("/api/client-config", () => Results.Ok(new
+{
+    resyncToleranceSeconds = config.Playback.ResyncToleranceSeconds,
+    detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds
+}));
+
 // DBに登録されている音源と動画の対応一覧を返します。
 app.MapGet("/api/tracks", async (MediaCatalogService service) => Results.Ok(await service.GetSummariesAsync()));
 
@@ -48,13 +56,31 @@ app.MapPost("/api/catalog/rebuild", async (MediaCatalogService service, Cancella
 // Windowsで利用できる録音デバイス名を返します。
 app.MapGet("/api/audio/devices", (AudioCaptureService capture) => Results.Ok(capture.GetDevices()));
 
-// 設定されたLINE入力デバイスの監視を開始します。
-app.MapPost("/api/capture/start", (AudioCaptureService capture) =>
+// 選択中または要求された録音デバイスの監視を開始します。
+app.MapPost("/api/capture/start", (AudioDeviceRequest request, AudioCaptureService capture) =>
 {
     try
     {
-        capture.Start();
+        capture.Start(request.DeviceName);
         return Results.Ok(new { message = "音声入力を開始しました。" });
+    }
+    catch (Exception exception)
+    {
+        return Results.Problem(exception.Message, statusCode: StatusCodes.Status409Conflict);
+    }
+});
+
+// 入力デバイスを変更し、監視中の場合は新しいデバイスで録音を再開します。
+app.MapPost("/api/capture/device", (AudioDeviceRequest request, AudioCaptureService capture) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(request.DeviceName))
+        {
+            return Results.BadRequest(new { message = "デバイス名を指定してください。" });
+        }
+        capture.SelectDevice(request.DeviceName);
+        return Results.Ok(new { message = $"入力デバイスを {request.DeviceName} に変更しました。" });
     }
     catch (Exception exception)
     {
@@ -78,6 +104,34 @@ app.MapGet("/api/media/{id:long}", async (long id, DatabaseService service) =>
         : Results.File(track.VideoPath, "video/mp4", enableRangeProcessing: true);
 });
 
-Console.WriteLine($"AutoVJ操作画面: http://{config.Server.Host}:{config.Server.Port}");
+// 未検出時に常時ループする汎用動画をRange要求対応で配信します。
+app.MapGet("/api/material/common", () =>
+{
+    var path = Path.GetFullPath(Path.Combine(config.Media.MaterialVideoDir, config.Media.CommonVideoFile));
+    return !File.Exists(path)
+        ? Results.NotFound()
+        : Results.File(path, "video/mp4", enableRangeProcessing: true);
+});
+
+var operationUrl = $"http://{config.Server.Host}:{config.Server.Port}";
+Console.WriteLine($"AutoVJ操作画面: {operationUrl}");
 Console.WriteLine($"音声入力: {config.Audio.PreferredInput}");
+
+// サーバー待受開始後に、OS既定ブラウザで操作画面を一度だけ開きます。
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    if (!config.Server.AutoOpenBrowser || Environment.GetEnvironmentVariable("AUTOVJ_NO_BROWSER") == "1")
+    {
+        return;
+    }
+    try
+    {
+        Process.Start(new ProcessStartInfo(operationUrl) { UseShellExecute = true });
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogWarning(exception, "操作画面をブラウザで自動表示できませんでした。");
+    }
+});
+
 await app.RunAsync();

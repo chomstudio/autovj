@@ -31,7 +31,7 @@ public sealed class DetectionWorker(
                 var query = fingerprints.Create(samples);
                 var tracks = await database.GetTracksAsync();
                 var result = fingerprints.Match(query, tracks);
-                state.SetMatch(result);
+                state.SetMatch(result, TimeSpan.FromSeconds(config.Playback.DetectionLostTimeoutSeconds));
             }
             catch (Exception exception)
             {
