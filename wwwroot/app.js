@@ -18,6 +18,7 @@ let updateInProgress = false;
 let lastAppliedMatchRevision = -1;
 let registeredTracks = [];
 let testTrackIndex = 0;
+let trackRefreshInProgress = false;
 let transitionConfig = {
   enabled: true,
   durationMilliseconds: 1200,
@@ -195,6 +196,19 @@ async function loadTracks() {
   }));
 }
 
+// 解析アプリによるDB更新を、現在の再生を止めずに一覧へ反映します。
+async function refreshTracks() {
+  if (trackRefreshInProgress) return;
+  trackRefreshInProgress = true;
+  try {
+    await loadTracks();
+  } catch (error) {
+    console.warn(`登録動画一覧を更新できませんでした: ${error.message}`);
+  } finally {
+    trackRefreshInProgress = false;
+  }
+}
+
 // Windowsの録音デバイス一覧を選択欄へ読み込みます。
 async function loadDevices(selectedDevice) {
   const devices = await request('/api/audio/devices');
@@ -264,13 +278,6 @@ function bindActions() {
     await request('/api/capture/stop', { method: 'POST' });
     await updateStatus();
   });
-  document.querySelector('#rebuild-button').addEventListener('click', async (event) => {
-    event.currentTarget.disabled = true;
-    statusMessage.textContent = '素材を解析中…';
-    try { await request('/api/catalog/rebuild', { method: 'POST' }); await loadTracks(); }
-    catch (error) { alert(error.message); }
-    finally { event.currentTarget.disabled = false; }
-  });
   document.querySelector('#fullscreen-button').addEventListener('click', () => {
     document.querySelector('.stage').requestFullscreen();
   });
@@ -307,6 +314,7 @@ async function initialize() {
   await playFallback();
   await updateStatus();
   window.setInterval(updateStatus, 1000);
+  window.setInterval(refreshTracks, 5000);
 }
 
 initialize();

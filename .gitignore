@@ -4,5 +4,6 @@
 bin/
 obj/
 data/*.db
+data/*.lock
 *.log
 

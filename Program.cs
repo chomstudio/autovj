@@ -12,7 +12,6 @@ builder.Services.AddSingleton<RuntimeState>();
 builder.Services.AddSingleton<FfmpegService>();
 builder.Services.AddSingleton<FingerprintService>();
 builder.Services.AddSingleton<DatabaseService>();
-builder.Services.AddSingleton<MediaCatalogService>();
 builder.Services.AddSingleton<AudioCaptureService>();
 builder.Services.AddSingleton<SelfTestService>();
 builder.Services.AddHostedService<DetectionWorker>();
@@ -22,11 +21,10 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 var database = app.Services.GetRequiredService<DatabaseService>();
-var catalog = app.Services.GetRequiredService<MediaCatalogService>();
 await database.InitializeAsync();
-if ((await catalog.GetSummariesAsync()).Count == 0)
+if ((await database.GetTrackSummariesAsync()).Count == 0)
 {
-    await catalog.RebuildAsync();
+    app.Logger.LogWarning("登録動画がありません。別プロセスで AutoVJ.Catalog の scan を実行してください。");
 }
 
 if (args.Contains("--self-test", StringComparer.OrdinalIgnoreCase))
@@ -62,12 +60,8 @@ app.MapGet("/api/client-config", () => Results.Ok(new
     }
 }));
 
-// DBに登録されている音源と動画の対応一覧を返します。
-app.MapGet("/api/tracks", async (MediaCatalogService service) => Results.Ok(await service.GetSummariesAsync()));
-
-// 設定した素材フォルダを再走査して指紋DBを作り直します。
-app.MapPost("/api/catalog/rebuild", async (MediaCatalogService service, CancellationToken token) =>
-    Results.Ok(await service.RebuildAsync(token)));
+// DBに登録されている音源と動画の対応一覧を指紋BLOBなしで返します。
+app.MapGet("/api/tracks", async (DatabaseService service) => Results.Ok(await service.GetTrackSummariesAsync()));
 
 // Windowsで利用できる録音デバイス名を返します。
 app.MapGet("/api/audio/devices", (AudioCaptureService capture) => Results.Ok(capture.GetDevices()));

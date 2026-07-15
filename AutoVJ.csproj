@@ -13,4 +13,8 @@
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Catalog\**\*.cs" />
+  </ItemGroup>
+
 </Project>

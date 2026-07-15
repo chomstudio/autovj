@@ -2,11 +2,13 @@
 
 Windows 11でLINE入力を監視し、登録動画の音声を検出して対応動画をブラウザ上で同期再生するオートVJプロトタイプです。
 
-現在は動画切り替え演出を追加した **M0.3** です。最終的な企画は `auto_vj_project_spec.md`、現在の実装仕様は `prototype_spec.md`、ユーザーからの次の指示は `prompt.md` を参照してください。
+現在は解析アプリを再生アプリから分離した **M0.4** です。最終的な企画は `auto_vj_project_spec.md`、現在の実装仕様は `prototype_spec.md`、ユーザーからの次の指示は `prompt.md` を参照してください。
 
 ## 現在できること
 
-- `main-videos` 内の各MP4から音声トラックを抽出して動画単位で登録
+- 独立した `AutoVJ.Catalog` で `main-videos` の新規・更新MP4だけを差分解析
+- 再生アプリを止めずに解析結果を共有SQLite DBへ反映
+- 更新時も既存の動画IDを維持し、削除された動画だけをDBから除去
 - FFmpegで動画音声を11,025Hz・モノラルPCMへ変換
 - 独自の周波数ピーク指紋をSQLiteへ保存
 - WindowsのWASAPI録音エンドポイントからLINE入力を取得
@@ -68,9 +70,28 @@ Windows側の表示名は環境によって大文字・小文字が変わるこ�
 
 ## 起動方法
 
+最初に解析アプリを実行し、動画指紋を登録します。引数を省略した場合も `scan` を実行します。
+
+Windowsでは初回の `dotnet restore` 後、`scan-videos.cmd` をダブルクリックしても実行できます。ランチャーは暗黙の再復元を行わず、完了結果を確認できるようウィンドウをキー入力まで閉じません。
+
+```powershell
+dotnet restore Catalog\AutoVJ.Catalog.csproj --source https://api.nuget.org/v3/index.json
+dotnet run --project Catalog\AutoVJ.Catalog.csproj --no-restore -- scan
+```
+
+別の設定ファイルを使う場合は次のように指定できます。
+
+```powershell
+dotnet run --project Catalog\AutoVJ.Catalog.csproj --no-restore -- scan --config config.yaml
+```
+
+解析はファイルサイズと最終更新日時が変わったMP4だけに行います。指紋生成はDBトランザクション外で行い、完成した動画から短いトランザクションで順次反映します。同じDBを対象とする解析アプリの多重起動は拒否します。
+
+続いて再生アプリを起動します。再生中に解析アプリを再実行しても構いません。
+
 ```powershell
 dotnet restore --source https://api.nuget.org/v3/index.json
-dotnet run
+dotnet run --no-restore
 ```
 
 サーバー起動後、OS既定ブラウザで次のURLを自動的に開きます。自動表示に失敗した場合は手動で開いてください。
@@ -79,7 +100,7 @@ dotnet run
 http://127.0.0.1:5180/
 ```
 
-初回起動時は、登録DBが空の場合に素材を自動解析します。素材を入れ替えた場合はWeb UIの「素材を再解析」を押してください。
+再生アプリ自身は動画解析を行いません。DBが空の場合はコンソールに解析アプリの実行案内を表示します。解析アプリがDBを更新すると、Web UIの登録動画一覧は5秒以内に自動更新されます。
 
 ## 自己診断
 
@@ -126,7 +147,8 @@ dotnet run -- --benchmark-detection
 
 ## 現在の制限
 
-- 音声指紋はM0.3用の独自方式で、テンポ・ピッチ変更やミックスへの耐性は未調整です。
+- 解析アプリは現在、実行時に一度走査して終了する `scan` モードのみです。フォルダ常駐監視の `watch` モードは未実装です。
+- 音声指紋はM0.4用の独自方式で、テンポ・ピッチ変更やミックスへの耐性は未調整です。
 - WASAPIループバック入力は未実装です。現在はLINEなどの録音エンドポイントを使用します。
 - 動画出力はブラウザのHTML Videoです。専用Windows出力やDirect3D合成は未実装です。
 - 重ね合わせ、LAN公開、PIN認証、インストーラーは未実装です。
