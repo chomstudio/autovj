@@ -25,12 +25,16 @@ async function request(path, options = {}) {
   return response.json();
 }
 
-// 登録済みの音源と動画の自動対応付けを一覧へ描画します。
+// 音声トラックから指紋を生成済みの登録動画を一覧へ描画します。
 async function loadTracks() {
   const tracks = await request('/api/tracks');
   trackList.replaceChildren(...tracks.map((track) => {
     const item = document.createElement('article');
-    item.innerHTML = `<strong>${track.audioFile}</strong><span>→ ${track.videoFile}</span>`;
+    const name = document.createElement('strong');
+    const duration = document.createElement('span');
+    name.textContent = track.videoFile;
+    duration.textContent = formatTime(track.durationSeconds);
+    item.append(name, duration);
     return item;
   }));
 }

@@ -17,13 +17,22 @@ public sealed class DatabaseService(AppConfig config)
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
         await using var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync();
+        var versionCommand = connection.CreateCommand();
+        versionCommand.CommandText = "PRAGMA user_version;";
+        var version = Convert.ToInt32(await versionCommand.ExecuteScalarAsync());
+        if (version < 2)
+        {
+            var migration = connection.CreateCommand();
+            migration.CommandText = "DROP TABLE IF EXISTS tracks; PRAGMA user_version = 2;";
+            await migration.ExecuteNonQueryAsync();
+        }
+
         var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS tracks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                audio_path TEXT NOT NULL UNIQUE,
-                video_path TEXT NOT NULL,
+                video_path TEXT NOT NULL UNIQUE,
                 duration_seconds REAL NOT NULL,
                 fingerprint BLOB NOT NULL,
                 updated_at TEXT NOT NULL
@@ -49,11 +58,10 @@ public sealed class DatabaseService(AppConfig config)
             var insert = connection.CreateCommand();
             insert.Transaction = transaction;
             insert.CommandText = """
-                INSERT INTO tracks (name, audio_path, video_path, duration_seconds, fingerprint, updated_at)
-                VALUES ($name, $audio, $video, $duration, $fingerprint, $updated);
+                INSERT INTO tracks (name, video_path, duration_seconds, fingerprint, updated_at)
+                VALUES ($name, $video, $duration, $fingerprint, $updated);
                 """;
             insert.Parameters.AddWithValue("$name", track.Name);
-            insert.Parameters.AddWithValue("$audio", track.AudioPath);
             insert.Parameters.AddWithValue("$video", track.VideoPath);
             insert.Parameters.AddWithValue("$duration", track.DurationSeconds);
             insert.Parameters.Add("$fingerprint", SqliteType.Blob).Value = track.Fingerprint;
@@ -71,7 +79,7 @@ public sealed class DatabaseService(AppConfig config)
         await using var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync();
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, name, audio_path, video_path, duration_seconds, fingerprint FROM tracks ORDER BY id;";
+        command.CommandText = "SELECT id, name, video_path, duration_seconds, fingerprint FROM tracks ORDER BY id;";
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -79,9 +87,8 @@ public sealed class DatabaseService(AppConfig config)
                 reader.GetInt64(0),
                 reader.GetString(1),
                 reader.GetString(2),
-                reader.GetString(3),
-                reader.GetDouble(4),
-                (byte[])reader[5]));
+                reader.GetDouble(3),
+                (byte[])reader[4]));
         }
         return tracks;
     }

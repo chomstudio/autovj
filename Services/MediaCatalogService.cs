@@ -18,64 +18,37 @@ public sealed class MediaCatalogService(
         return tracks.Select(track => new TrackSummary(
             track.Id,
             track.Name,
-            Path.GetFileName(track.AudioPath),
             Path.GetFileName(track.VideoPath),
             track.DurationSeconds)).ToList();
     }
 
-    // 音源と動画を再生時間で対応付けし、指紋を生成してDBを再構築します。
+    // 各MP4の音声トラックから指紋を生成し、動画単位でDBを再構築します。
     public async Task<List<TrackSummary>> RebuildAsync(CancellationToken cancellationToken = default)
     {
         await _rebuildLock.WaitAsync(cancellationToken);
         try
         {
-            var audioDirectory = Path.GetFullPath(config.Media.InputAudioDir);
             var videoDirectory = Path.GetFullPath(config.Media.MainVideoDir);
-            Directory.CreateDirectory(audioDirectory);
             Directory.CreateDirectory(videoDirectory);
 
-            var audioFiles = Directory.EnumerateFiles(audioDirectory)
-                .Where(path => new[] { ".mp3", ".wav" }.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
             var videoFiles = Directory.EnumerateFiles(videoDirectory, "*.mp4")
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var audioDurations = await ReadDurationsAsync(audioFiles, cancellationToken);
             var videoDurations = await ReadDurationsAsync(videoFiles, cancellationToken);
-            var remainingVideos = new HashSet<string>(videoFiles, StringComparer.OrdinalIgnoreCase);
             var records = new List<TrackRecord>();
 
-            foreach (var audioPath in audioFiles)
+            foreach (var videoPath in videoFiles)
             {
-                var videoPath = remainingVideos
-                    .OrderBy(path => Math.Abs(videoDurations[path] - audioDurations[audioPath]))
-                    .FirstOrDefault();
-                if (videoPath is null)
-                {
-                    logger.LogWarning("対応する動画がないため {Audio} を登録しません。", audioPath);
-                    continue;
-                }
-
-                var difference = Math.Abs(videoDurations[videoPath] - audioDurations[audioPath]);
-                if (difference > config.Media.PairingDurationToleranceSeconds)
-                {
-                    logger.LogWarning("再生時間差が {Difference:F2} 秒あるため {Audio} を登録しません。", difference, audioPath);
-                    continue;
-                }
-
-                logger.LogInformation("指紋を生成しています: {Audio}", Path.GetFileName(audioPath));
-                var samples = await ffmpeg.DecodeAudioAsync(audioPath, cancellationToken: cancellationToken);
+                logger.LogInformation("動画の音声指紋を生成しています: {Video}", Path.GetFileName(videoPath));
+                var samples = await ffmpeg.DecodeAudioAsync(videoPath, cancellationToken: cancellationToken);
                 var fingerprint = fingerprints.Create(samples);
                 records.Add(new TrackRecord(
                     0,
-                    Path.GetFileNameWithoutExtension(audioPath),
-                    audioPath,
+                    Path.GetFileNameWithoutExtension(videoPath),
                     videoPath,
-                    audioDurations[audioPath],
+                    videoDurations[videoPath],
                     fingerprint));
-                remainingVideos.Remove(videoPath);
             }
 
             await database.ReplaceTracksAsync(records);

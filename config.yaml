@@ -5,7 +5,6 @@ server:
 media:
   input_audio_dir: "input-audio"
   main_video_dir: "main-videos"
-  pairing_duration_tolerance_seconds: 5
 
 audio:
   preferred_input: "LINE (Yamaha AG03MK2)"

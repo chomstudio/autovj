@@ -55,7 +55,6 @@ public static class ConfigService
             case "server.port": config.Server.Port = int.Parse(value, culture); break;
             case "media.input_audio_dir": config.Media.InputAudioDir = value; break;
             case "media.main_video_dir": config.Media.MainVideoDir = value; break;
-            case "media.pairing_duration_tolerance_seconds": config.Media.PairingDurationToleranceSeconds = double.Parse(value, numberStyle, culture); break;
             case "audio.preferred_input": config.Audio.PreferredInput = value; break;
             case "audio.sample_rate": config.Audio.SampleRate = int.Parse(value, culture); break;
             case "audio.detection_window_seconds": config.Audio.DetectionWindowSeconds = int.Parse(value, culture); break;

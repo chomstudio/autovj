@@ -20,7 +20,6 @@ public sealed class MediaConfig
 {
     public string InputAudioDir { get; set; } = "input-audio";
     public string MainVideoDir { get; set; } = "main-videos";
-    public double PairingDurationToleranceSeconds { get; set; } = 5;
 }
 
 public sealed class AudioConfig
