@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoVJ M0</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="layout">
+    <section class="stage" aria-label="映像出力">
+      <video id="output-video" muted playsinline></video>
+      <div id="idle-message" class="idle-message">音声入力を開始してください</div>
+    </section>
+
+    <aside class="panel">
+      <header>
+        <p class="eyebrow">AUTO VJ / M0</p>
+        <h1>検出モニター</h1>
+      </header>
+
+      <section class="status-card">
+        <span id="capture-indicator" class="indicator"></span>
+        <div>
+          <p class="label">入力状態</p>
+          <p id="status-message">停止中</p>
+        </div>
+      </section>
+
+      <dl class="metrics">
+        <div><dt>検出曲</dt><dd id="track-name">—</dd></div>
+        <div><dt>信頼度</dt><dd id="confidence">0.0%</dd></div>
+        <div><dt>推定位置</dt><dd id="position">0:00.0</dd></div>
+      </dl>
+
+      <div class="actions">
+        <button id="start-button" class="primary">入力開始</button>
+        <button id="stop-button">停止</button>
+        <button id="rebuild-button">素材を再解析</button>
+        <button id="fullscreen-button">映像を全画面表示</button>
+      </div>
+
+      <section>
+        <h2>登録素材</h2>
+        <div id="track-list" class="track-list"></div>
+      </section>
+    </aside>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

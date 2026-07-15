@@ -1,0 +1,24 @@
+server:
+  host: "127.0.0.1"
+  port: 5180
+
+media:
+  input_audio_dir: "input-audio"
+  main_video_dir: "main-videos"
+  pairing_duration_tolerance_seconds: 5
+
+audio:
+  preferred_input: "LINE (Yamaha AG03MK2)"
+  sample_rate: 11025
+  detection_window_seconds: 8
+
+detection:
+  interval_seconds: 2
+  confidence_threshold: 0.62
+
+storage:
+  database_path: "data/autovj.db"
+
+ffmpeg:
+  path: "ffmpeg"
+  ffprobe_path: "ffprobe"

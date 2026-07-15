@@ -1,4 +1,8 @@
 *.mp3
 *.wav
 *.mp4
+bin/
+obj/
+data/*.db
+*.log
 
