@@ -45,7 +45,7 @@ public sealed class FingerprintService(AppConfig config)
     }
 
     // 入力指紋を全登録曲へ照合し、最も信頼度の高い曲と位置を返します。
-    public MatchResult Match(byte[] query, IReadOnlyList<TrackRecord> tracks)
+    public MatchResult Match(byte[] query, IReadOnlyList<TrackRecord> tracks, double? confidenceThreshold = null)
     {
         TrackRecord? bestTrack = null;
         var bestConfidence = 0.0;
@@ -63,7 +63,8 @@ public sealed class FingerprintService(AppConfig config)
         }
 
         var position = (bestFrame + query.Length / BandsPerFrame) * HopSize / (double)config.Audio.SampleRate;
-        return bestConfidence >= config.Detection.ConfidenceThreshold
+        var threshold = confidenceThreshold ?? config.Detection.ConfidenceThreshold;
+        return bestConfidence >= threshold
             ? new MatchResult(bestTrack, bestConfidence, position)
             : new MatchResult(null, bestConfidence, 0);
     }

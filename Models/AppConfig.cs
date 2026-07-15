@@ -7,6 +7,7 @@ public sealed class AppConfig
     public AudioConfig Audio { get; } = new();
     public DetectionConfig Detection { get; } = new();
     public PlaybackConfig Playback { get; } = new();
+    public TransitionConfig Transition { get; } = new();
     public StorageConfig Storage { get; } = new();
     public FfmpegConfig Ffmpeg { get; } = new();
 }
@@ -30,19 +31,31 @@ public sealed class AudioConfig
 {
     public string PreferredInput { get; set; } = "LINE (Yamaha AG03MK2)";
     public int SampleRate { get; set; } = 11025;
-    public int DetectionWindowSeconds { get; set; } = 8;
+    public int DetectionWindowSeconds { get; set; } = 4;
 }
 
 public sealed class DetectionConfig
 {
-    public int IntervalSeconds { get; set; } = 2;
+    public int IntervalSeconds { get; set; } = 1;
     public double ConfidenceThreshold { get; set; } = 0.62;
+    public double TentativeConfidenceThreshold { get; set; } = 0.55;
+    public int TentativeConfirmationCount { get; set; } = 2;
+    public double MinimumInputDecibels { get; set; } = -48;
 }
 
 public sealed class PlaybackConfig
 {
     public int DetectionLostTimeoutSeconds { get; set; } = 10;
     public double ResyncToleranceSeconds { get; set; } = 2;
+}
+
+public sealed class TransitionConfig
+{
+    public bool Enabled { get; set; } = true;
+    public int DurationMilliseconds { get; set; } = 1200;
+    public bool BlendModesEnabled { get; set; } = true;
+    public bool RandomizeBlendMode { get; set; } = true;
+    public List<string> BlendModes { get; set; } = ["screen", "multiply", "overlay", "soft-light", "difference"];
 }
 
 public sealed class StorageConfig

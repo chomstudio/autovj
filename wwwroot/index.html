@@ -3,19 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AutoVJ M0.1</title>
-  <link rel="stylesheet" href="/style.css">
+  <title>AutoVJ M0.3</title>
+  <link rel="stylesheet" href="/style.css?v=m03">
 </head>
 <body>
   <main class="layout">
     <section class="stage" aria-label="映像出力">
-      <video id="output-video" autoplay loop muted playsinline preload="auto"></video>
+      <div id="video-stack" class="video-stack">
+        <video class="output-video" loop muted playsinline preload="auto"></video>
+        <video class="output-video" loop muted playsinline preload="auto"></video>
+      </div>
       <div id="idle-message" class="idle-message" hidden>汎用動画を読み込めません</div>
     </section>
 
     <aside class="panel">
       <header>
-        <p class="eyebrow">AUTO VJ / M0.1</p>
+        <p class="eyebrow">AUTO VJ / M0.3</p>
         <h1>検出モニター</h1>
       </header>
 
@@ -40,6 +43,7 @@
         <div><dt>検出曲</dt><dd id="track-name">—</dd></div>
         <div><dt>信頼度</dt><dd id="confidence">0.0%</dd></div>
         <div><dt>推定位置</dt><dd id="position">0:00.0</dd></div>
+        <div><dt>切替演出</dt><dd id="transition-mode">待機中</dd></div>
       </dl>
 
       <div class="actions">
@@ -49,12 +53,18 @@
         <button id="fullscreen-button">映像を全画面表示</button>
       </div>
 
+      <section id="test-controls" class="test-controls" hidden>
+        <h2>UI試験</h2>
+        <button id="test-next-button">次の登録動画へ切替</button>
+        <button id="test-fallback-button">汎用動画へ切替</button>
+      </section>
+
       <section>
         <h2>登録動画</h2>
         <div id="track-list" class="track-list"></div>
       </section>
     </aside>
   </main>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=m03"></script>
 </body>
 </html>

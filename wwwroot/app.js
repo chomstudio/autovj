@@ -1,4 +1,4 @@
-const video = document.querySelector('#output-video');
+const videos = [...document.querySelectorAll('.output-video')];
 const idleMessage = document.querySelector('#idle-message');
 const statusMessage = document.querySelector('#status-message');
 const indicator = document.querySelector('#capture-indicator');
@@ -10,9 +10,21 @@ const deviceSelect = document.querySelector('#device-select');
 const levelMeter = document.querySelector('#level-meter');
 const levelFill = document.querySelector('#level-fill');
 const levelValue = document.querySelector('#level-value');
+const transitionMode = document.querySelector('#transition-mode');
 let currentSourceKey = null;
+let activeVideoIndex = 0;
 let resyncToleranceSeconds = 2;
 let updateInProgress = false;
+let lastAppliedMatchRevision = -1;
+let registeredTracks = [];
+let testTrackIndex = 0;
+let transitionConfig = {
+  enabled: true,
+  durationMilliseconds: 1200,
+  blendModesEnabled: true,
+  randomizeBlendMode: true,
+  blendModes: ['normal'],
+};
 
 // 秒数をモニター向けの分:秒表記へ変換します。
 function formatTime(seconds) {
@@ -28,7 +40,8 @@ async function request(path, options = {}) {
     const problem = await response.json().catch(() => ({}));
     throw new Error(problem.detail || `HTTP ${response.status}`);
   }
-  return response.json();
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 }
 
 // JSON本文を付けたPOST要求をAPIへ送信します。
@@ -41,26 +54,124 @@ async function postJson(path, data = {}) {
 }
 
 // 動画メタデータが利用可能になるまで待ち、安全にシークできる状態にします。
-async function waitForMetadata() {
+async function waitForMetadata(video) {
   if (video.readyState >= 1) return;
   await new Promise((resolve, reject) => {
-    video.addEventListener('loadedmetadata', resolve, { once: true });
-    video.addEventListener('error', () => reject(new Error('動画を読み込めませんでした。')), { once: true });
+    let timeoutId;
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      video.removeEventListener('loadedmetadata', onLoaded);
+      video.removeEventListener('error', onError);
+    };
+    const onLoaded = () => { cleanup(); resolve(); };
+    const onError = () => { cleanup(); reject(new Error('動画を読み込めませんでした。')); };
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('動画メタデータの読み込みがタイムアウトしました。'));
+    }, 10000);
+    video.addEventListener('loadedmetadata', onLoaded);
+    video.addEventListener('error', onError);
   });
 }
 
-// 再生元を切り替え、ループとミュートを常に強制した状態で再生します。
-async function playSource(sourceKey, sourceUrl, seekSeconds = 0) {
-  video.loop = true;
-  video.muted = true;
-  video.controls = false;
-  if (currentSourceKey !== sourceKey) {
-    currentSourceKey = sourceKey;
-    video.src = sourceUrl;
-    await waitForMetadata();
-    video.currentTime = Math.min(Math.max(0, seekSeconds), Math.max(0, video.duration - 0.05));
+// 現在画面に表示している動画レイヤーを返します。
+function getActiveVideo() {
+  return videos[activeVideoIndex];
+}
+
+// 設定候補から今回の切り替えに使うブレンドモードを選びます。
+function chooseBlendMode() {
+  if (!transitionConfig.blendModesEnabled || transitionConfig.blendModes.length === 0) {
+    return 'normal';
   }
-  await video.play();
+  if (!transitionConfig.randomizeBlendMode) {
+    return transitionConfig.blendModes[0];
+  }
+  return transitionConfig.blendModes[Math.floor(Math.random() * transitionConfig.blendModes.length)];
+}
+
+// CSSトランジションを確実に開始させるため、描画フレームを2回待ちます。
+async function waitForAnimationFrame() {
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+// opacityの切り替え完了を待ち、イベント欠落時は時間経過で復帰します。
+async function waitForOpacityTransition(video, durationMilliseconds) {
+  if (durationMilliseconds <= 0) return;
+  await new Promise((resolve) => {
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      video.removeEventListener('transitionend', onTransitionEnd);
+      resolve();
+    };
+    const onTransitionEnd = (event) => {
+      if (event.propertyName === 'opacity') finish();
+    };
+    video.addEventListener('transitionend', onTransitionEnd);
+    window.setTimeout(finish, durationMilliseconds + 150);
+  });
+}
+
+// 2枚の動画を重ね、設定された時間とブレンドモードでクロスフェードします。
+async function playSource(sourceKey, sourceUrl, seekSeconds = 0) {
+  const activeVideo = getActiveVideo();
+  if (currentSourceKey === sourceKey) {
+    activeVideo.loop = true;
+    activeVideo.muted = true;
+    activeVideo.controls = false;
+    await activeVideo.play();
+    return;
+  }
+
+  const initialPlayback = currentSourceKey === null;
+  const incomingIndex = initialPlayback ? activeVideoIndex : 1 - activeVideoIndex;
+  const incomingVideo = videos[incomingIndex];
+  const outgoingVideo = initialPlayback ? null : activeVideo;
+  const duration = transitionConfig.enabled && !initialPlayback
+    ? Math.max(0, transitionConfig.durationMilliseconds)
+    : 0;
+  const blendMode = duration > 0 ? chooseBlendMode() : 'normal';
+
+  incomingVideo.style.transition = 'none';
+  incomingVideo.style.opacity = '0';
+  incomingVideo.style.zIndex = '2';
+  incomingVideo.style.mixBlendMode = blendMode;
+  incomingVideo.loop = true;
+  incomingVideo.muted = true;
+  incomingVideo.controls = false;
+  incomingVideo.src = sourceUrl;
+  await waitForMetadata(incomingVideo);
+  incomingVideo.currentTime = Math.min(Math.max(0, seekSeconds), Math.max(0, incomingVideo.duration - 0.05));
+  await incomingVideo.play();
+
+  if (outgoingVideo) {
+    outgoingVideo.style.zIndex = '1';
+    outgoingVideo.style.transition = duration > 0 ? `opacity ${duration}ms linear` : 'none';
+    incomingVideo.style.transition = duration > 0 ? `opacity ${duration}ms linear` : 'none';
+    await waitForAnimationFrame();
+    outgoingVideo.style.opacity = '0';
+  }
+  incomingVideo.style.opacity = '1';
+  transitionMode.textContent = duration > 0
+    ? `${blendMode} / ${(duration / 1000).toFixed(1)}秒`
+    : '即時切替';
+  await waitForOpacityTransition(incomingVideo, duration);
+
+  if (outgoingVideo) {
+    outgoingVideo.pause();
+    outgoingVideo.removeAttribute('src');
+    outgoingVideo.load();
+    outgoingVideo.style.transition = 'none';
+    outgoingVideo.style.mixBlendMode = 'normal';
+    outgoingVideo.style.zIndex = '0';
+  }
+  incomingVideo.style.transition = 'none';
+  incomingVideo.style.mixBlendMode = 'normal';
+  incomingVideo.style.zIndex = '1';
+  activeVideoIndex = incomingIndex;
+  currentSourceKey = sourceKey;
   idleMessage.hidden = true;
 }
 
@@ -72,6 +183,7 @@ async function playFallback() {
 // 音声トラックから指紋を生成済みの登録動画を一覧へ描画します。
 async function loadTracks() {
   const tracks = await request('/api/tracks');
+  registeredTracks = tracks;
   trackList.replaceChildren(...tracks.map((track) => {
     const item = document.createElement('article');
     const name = document.createElement('strong');
@@ -119,11 +231,17 @@ async function updateStatus() {
       const sourceKey = `track-${state.trackId}`;
       if (currentSourceKey !== sourceKey) {
         await playSource(sourceKey, `/api/media/${state.trackId}`, state.positionSeconds);
-      } else if (Math.abs(video.currentTime - state.positionSeconds) > resyncToleranceSeconds) {
-        video.currentTime = state.positionSeconds;
+        lastAppliedMatchRevision = state.matchRevision;
+      } else if (lastAppliedMatchRevision !== state.matchRevision) {
+        const activeVideo = getActiveVideo();
+        if (Math.abs(activeVideo.currentTime - state.positionSeconds) > resyncToleranceSeconds) {
+          activeVideo.currentTime = state.positionSeconds;
+        }
+        lastAppliedMatchRevision = state.matchRevision;
       }
-      if (video.paused) {
-        await video.play();
+      const currentVideo = getActiveVideo();
+      if (currentVideo.paused) {
+        await currentVideo.play();
       }
     } else {
       await playFallback();
@@ -161,6 +279,17 @@ function bindActions() {
     catch (error) { alert(error.message); }
     await updateStatus();
   });
+  document.querySelector('#test-next-button').addEventListener('click', async () => {
+    if (registeredTracks.length === 0) return;
+    const track = registeredTracks[testTrackIndex % registeredTracks.length];
+    testTrackIndex++;
+    await postJson(`/api/test/match/${track.id}`);
+    await updateStatus();
+  });
+  document.querySelector('#test-fallback-button').addEventListener('click', async () => {
+    await postJson('/api/test/fallback');
+    await updateStatus();
+  });
 }
 
 // 初期一覧を読み込み、状態ポーリングを開始します。
@@ -171,6 +300,8 @@ async function initialize() {
     request('/api/client-config'),
   ]);
   resyncToleranceSeconds = clientConfig.resyncToleranceSeconds;
+  transitionConfig = clientConfig.transition;
+  document.querySelector('#test-controls').hidden = !clientConfig.testApiEnabled;
   await loadDevices(state.selectedInputDevice);
   await loadTracks();
   await playFallback();

@@ -63,11 +63,29 @@ public static class ConfigService
             case "audio.detection_window_seconds": config.Audio.DetectionWindowSeconds = int.Parse(value, culture); break;
             case "detection.interval_seconds": config.Detection.IntervalSeconds = int.Parse(value, culture); break;
             case "detection.confidence_threshold": config.Detection.ConfidenceThreshold = double.Parse(value, numberStyle, culture); break;
+            case "detection.tentative_confidence_threshold": config.Detection.TentativeConfidenceThreshold = double.Parse(value, numberStyle, culture); break;
+            case "detection.tentative_confirmation_count": config.Detection.TentativeConfirmationCount = int.Parse(value, culture); break;
+            case "detection.minimum_input_decibels": config.Detection.MinimumInputDecibels = double.Parse(value, numberStyle, culture); break;
             case "playback.detection_lost_timeout_seconds": config.Playback.DetectionLostTimeoutSeconds = int.Parse(value, culture); break;
             case "playback.resync_tolerance_seconds": config.Playback.ResyncToleranceSeconds = double.Parse(value, numberStyle, culture); break;
+            case "transition.enabled": config.Transition.Enabled = bool.Parse(value); break;
+            case "transition.duration_ms": config.Transition.DurationMilliseconds = int.Parse(value, culture); break;
+            case "transition.blend_modes_enabled": config.Transition.BlendModesEnabled = bool.Parse(value); break;
+            case "transition.randomize_blend_mode": config.Transition.RandomizeBlendMode = bool.Parse(value); break;
+            case "transition.blend_modes": config.Transition.BlendModes = ParseStringList(value); break;
             case "storage.database_path": config.Storage.DatabasePath = value; break;
             case "ffmpeg.path": config.Ffmpeg.Path = value; break;
             case "ffmpeg.ffprobe_path": config.Ffmpeg.FfprobePath = value; break;
         }
+    }
+
+    // YAMLのインライン配列を文字列一覧へ変換します。
+    private static List<string> ParseStringList(string value)
+    {
+        return value.Trim().TrimStart('[').TrimEnd(']')
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(item => item.Trim('"', '\''))
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .ToList();
     }
 }

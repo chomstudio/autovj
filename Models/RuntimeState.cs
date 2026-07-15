@@ -9,7 +9,7 @@ public sealed class RuntimeState
     // 設定済みデバイス名を含む初期状態を作成します。
     public RuntimeState(AppConfig config)
     {
-        _snapshot = new RuntimeSnapshot(false, "停止中", config.Audio.PreferredInput, 0, -60, null, 0, 0, null);
+        _snapshot = new RuntimeSnapshot(false, "停止中", config.Audio.PreferredInput, 0, -60, null, 0, 0, null, 0);
     }
 
     // 複数スレッドから参照される状態を安全に複製して返します。
@@ -77,7 +77,8 @@ public sealed class RuntimeState
                     TrackName = result.Track.Name,
                     Confidence = result.Confidence,
                     PositionSeconds = result.PositionSeconds,
-                    Message = $"{result.Track.Name} を検出"
+                    Message = $"{result.Track.Name} を検出",
+                    MatchRevision = _snapshot.MatchRevision + 1
                 };
                 return;
             }
@@ -105,4 +106,5 @@ public sealed record RuntimeSnapshot(
     long? TrackId,
     double Confidence,
     double PositionSeconds,
-    string? TrackName);
+    string? TrackName,
+    long MatchRevision);

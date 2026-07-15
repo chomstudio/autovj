@@ -36,6 +36,13 @@ if (args.Contains("--self-test", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
+if (args.Contains("--benchmark-detection", StringComparer.OrdinalIgnoreCase))
+{
+    var selfTest = app.Services.GetRequiredService<SelfTestService>();
+    Environment.ExitCode = await selfTest.RunBenchmarkAsync() ? 0 : 1;
+    return;
+}
+
 // 現在の検出状態をブラウザへ返します。
 app.MapGet("/api/status", (RuntimeState state) => Results.Ok(state.GetSnapshot()));
 
@@ -43,7 +50,16 @@ app.MapGet("/api/status", (RuntimeState state) => Results.Ok(state.GetSnapshot()
 app.MapGet("/api/client-config", () => Results.Ok(new
 {
     resyncToleranceSeconds = config.Playback.ResyncToleranceSeconds,
-    detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds
+    detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds,
+    testApiEnabled = Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1",
+    transition = new
+    {
+        enabled = config.Transition.Enabled,
+        durationMilliseconds = Math.Clamp(config.Transition.DurationMilliseconds, 0, 10000),
+        blendModesEnabled = config.Transition.BlendModesEnabled,
+        randomizeBlendMode = config.Transition.RandomizeBlendMode,
+        blendModes = NormalizeBlendModes(config.Transition.BlendModes)
+    }
 }));
 
 // DBに登録されている音源と動画の対応一覧を返します。
@@ -113,6 +129,29 @@ app.MapGet("/api/material/common", () =>
         : Results.File(path, "video/mp4", enableRangeProcessing: true);
 });
 
+if (Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1")
+{
+    // 自動UI試験時だけ、任意の登録動画を検出済み状態へ切り替えます。
+    app.MapPost("/api/test/match/{id:long}", async (long id, DatabaseService service, RuntimeState state) =>
+    {
+        var track = (await service.GetTracksAsync()).FirstOrDefault(candidate => candidate.Id == id);
+        if (track is null)
+        {
+            return Results.NotFound();
+        }
+        state.SetCapture(true, "UI試験中");
+        state.SetMatch(new MatchResult(track, 0.99, 15), TimeSpan.FromSeconds(config.Playback.DetectionLostTimeoutSeconds));
+        return Results.Ok();
+    });
+
+    // 自動UI試験時だけ、汎用動画へ戻る状態を作ります。
+    app.MapPost("/api/test/fallback", (RuntimeState state) =>
+    {
+        state.SetCapture(false, "UI試験・汎用動画");
+        return Results.Ok();
+    });
+}
+
 var operationUrl = $"http://{config.Server.Host}:{config.Server.Port}";
 Console.WriteLine($"AutoVJ操作画面: {operationUrl}");
 Console.WriteLine($"音声入力: {config.Audio.PreferredInput}");
@@ -135,3 +174,19 @@ app.Lifetime.ApplicationStarted.Register(() =>
 });
 
 await app.RunAsync();
+
+// 設定値からブラウザで安全に利用できるCSSブレンドモードだけを残します。
+static string[] NormalizeBlendModes(IEnumerable<string> configuredModes)
+{
+    var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "normal", "multiply", "screen", "overlay", "darken", "lighten",
+        "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion"
+    };
+    var modes = configuredModes
+        .Select(mode => mode.Trim().ToLowerInvariant())
+        .Where(allowed.Contains)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    return modes.Length > 0 ? modes : ["normal"];
+}
