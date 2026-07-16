@@ -1,3 +1,5 @@
+using AutoVJ.Services;
+
 namespace AutoVJ.Models;
 
 public sealed class RuntimeState
@@ -9,7 +11,7 @@ public sealed class RuntimeState
     // 設定済みデバイス名を含む初期状態を作成します。
     public RuntimeState(AppConfig config)
     {
-        _snapshot = new RuntimeSnapshot(false, "停止中", config.Audio.PreferredInput, 0, -60, null, 0, 0, null, 0);
+        _snapshot = new RuntimeSnapshot(false, "停止中", config.Audio.PreferredInput, 0, -60, null, 0, 0, null, 0, null, null, 1.0, FingerprintService.LegacyMethod, FingerprintService.LegacyVersion);
     }
 
     // 複数スレッドから参照される状態を安全に複製して返します。
@@ -40,7 +42,10 @@ public sealed class RuntimeState
                 TrackId = running ? _snapshot.TrackId : null,
                 TrackName = running ? _snapshot.TrackName : null,
                 Confidence = running ? _snapshot.Confidence : 0,
-                PositionSeconds = running ? _snapshot.PositionSeconds : 0
+                PositionSeconds = running ? _snapshot.PositionSeconds : 0,
+                ReferenceBpm = running ? _snapshot.ReferenceBpm : null,
+                InputBpm = running ? _snapshot.InputBpm : null,
+                TempoRatio = running ? _snapshot.TempoRatio : 1.0
             };
         }
     }
@@ -78,7 +83,12 @@ public sealed class RuntimeState
                     Confidence = result.Confidence,
                     PositionSeconds = result.PositionSeconds,
                     Message = $"{result.Track.Name} を検出",
-                    MatchRevision = _snapshot.MatchRevision + 1
+                    MatchRevision = _snapshot.MatchRevision + 1,
+                    ReferenceBpm = result.ReferenceBpm,
+                    InputBpm = result.InputBpm,
+                    TempoRatio = result.TempoRatio,
+                    FingerprintMethod = result.FingerprintMethod,
+                    FingerprintVersion = result.FingerprintVersion
                 };
                 return;
             }
@@ -91,6 +101,9 @@ public sealed class RuntimeState
                 TrackId = timedOut ? null : _snapshot.TrackId,
                 TrackName = timedOut ? null : _snapshot.TrackName,
                 PositionSeconds = timedOut ? 0 : _snapshot.PositionSeconds,
+                ReferenceBpm = timedOut ? null : _snapshot.ReferenceBpm,
+                InputBpm = timedOut ? null : _snapshot.InputBpm,
+                TempoRatio = timedOut ? 1.0 : _snapshot.TempoRatio,
                 Message = timedOut ? "曲を探索中・汎用動画を再生" : "現在の曲を継続確認中"
             };
         }
@@ -107,4 +120,9 @@ public sealed record RuntimeSnapshot(
     double Confidence,
     double PositionSeconds,
     string? TrackName,
-    long MatchRevision);
+    long MatchRevision,
+    double? ReferenceBpm,
+    double? InputBpm,
+    double TempoRatio,
+    string FingerprintMethod,
+    int FingerprintVersion);

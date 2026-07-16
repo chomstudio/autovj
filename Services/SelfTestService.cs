@@ -1,4 +1,5 @@
 using AutoVJ.Models;
+using System.Diagnostics;
 
 namespace AutoVJ.Services;
 
@@ -42,11 +43,15 @@ public sealed class SelfTestService(
                 start,
                 config.Audio.DetectionWindowSeconds,
                 cancellationToken);
-            var result = fingerprints.Match(fingerprints.Create(samples), tracks);
+            var stopwatch = Stopwatch.StartNew();
+            var result = fingerprints.Match(samples, tracks);
+            stopwatch.Stop();
             var passed = result.Track is not null;
             allPassed &= passed;
             Console.WriteLine(
-                $"自己診断: {(passed ? "成功" : "失敗")} / 入力={Path.GetFileName(inputPath)} / 検出動画={result.Track?.Name ?? "なし"} / 信頼度={result.Confidence:P1} / 位置={result.PositionSeconds:F1}秒");
+                $"自己診断: {(passed ? "成功" : "失敗")} / 入力={Path.GetFileName(inputPath)} / 検出動画={result.Track?.Name ?? "なし"} / " +
+                $"信頼度={result.Confidence:P1} / 位置={result.PositionSeconds:F1}秒 / 倍率={result.TempoRatio:F2} / " +
+                $"方式={result.FingerprintMethod} v{result.FingerprintVersion} / 処理={stopwatch.Elapsed.TotalMilliseconds:F1}ms");
         }
 
         var revisionTrack = tracks[0];

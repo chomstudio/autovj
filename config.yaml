@@ -20,6 +20,8 @@ detection:
   tentative_confidence_threshold: 0.55
   tentative_confirmation_count: 2
   minimum_input_decibels: -48
+  tempo_ratios: [0.90, 0.93, 0.95, 1.00, 1.05, 1.10, 1.15, 1.17]
+  playback_rate_tolerance: 0.015
 
 playback:
   detection_lost_timeout_seconds: 10

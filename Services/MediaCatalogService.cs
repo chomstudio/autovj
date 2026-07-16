@@ -40,7 +40,9 @@ public sealed class MediaCatalogService(
                 existingEntries.TryGetValue(videoPath, out var existing);
                 if (existing is not null
                     && existing.FileSize == file.Length
-                    && string.Equals(existing.FileModifiedUtc, modifiedUtc, StringComparison.Ordinal))
+                    && string.Equals(existing.FileModifiedUtc, modifiedUtc, StringComparison.Ordinal)
+                    && string.Equals(existing.FingerprintMethod, FingerprintService.TempoMethod, StringComparison.Ordinal)
+                    && existing.FingerprintVersion == FingerprintService.TempoVersion)
                 {
                     unchanged++;
                     logger.LogInformation("変更なし: {Video}", file.Name);
@@ -53,7 +55,9 @@ public sealed class MediaCatalogService(
                     var duration = await ffmpeg.GetDurationAsync(videoPath, cancellationToken);
                     var samples = await ffmpeg.DecodeAudioAsync(videoPath, cancellationToken: cancellationToken);
                     var fingerprint = fingerprints.Create(samples);
-                    if (fingerprint.Length == 0)
+                    var tempoFingerprint = fingerprints.CreateTempoFingerprint(samples);
+                    var bpm = fingerprints.EstimateBpm(samples);
+                    if (fingerprint.Length == 0 || tempoFingerprint.Length == 0)
                     {
                         throw new InvalidOperationException("音声指紋を生成できませんでした。");
                     }
@@ -66,7 +70,13 @@ public sealed class MediaCatalogService(
                         duration,
                         fingerprint,
                         file.Length,
-                        modifiedUtc), cancellationToken);
+                        modifiedUtc,
+                        FingerprintService.TempoMethod,
+                        FingerprintService.TempoVersion,
+                        tempoFingerprint,
+                        bpm.Bpm,
+                        bpm.Confidence,
+                        bpm.Source), cancellationToken);
                     if (existing is null) added++; else updated++;
                     logger.LogInformation("登録完了: {Video}", file.Name);
                 }

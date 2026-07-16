@@ -66,6 +66,8 @@ public static class ConfigService
             case "detection.tentative_confidence_threshold": config.Detection.TentativeConfidenceThreshold = double.Parse(value, numberStyle, culture); break;
             case "detection.tentative_confirmation_count": config.Detection.TentativeConfirmationCount = int.Parse(value, culture); break;
             case "detection.minimum_input_decibels": config.Detection.MinimumInputDecibels = double.Parse(value, numberStyle, culture); break;
+            case "detection.tempo_ratios": config.Detection.TempoRatios = ParseDoubleList(value); break;
+            case "detection.playback_rate_tolerance": config.Detection.PlaybackRateTolerance = double.Parse(value, numberStyle, culture); break;
             case "playback.detection_lost_timeout_seconds": config.Playback.DetectionLostTimeoutSeconds = int.Parse(value, culture); break;
             case "playback.resync_tolerance_seconds": config.Playback.ResyncToleranceSeconds = double.Parse(value, numberStyle, culture); break;
             case "transition.enabled": config.Transition.Enabled = bool.Parse(value); break;
@@ -86,6 +88,15 @@ public static class ConfigService
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(item => item.Trim('"', '\''))
             .Where(item => !string.IsNullOrWhiteSpace(item))
+            .ToList();
+    }
+
+    // YAMLのインライン配列をテンポ倍率一覧へ変換します。
+    private static List<double> ParseDoubleList(string value)
+    {
+        return value.Trim().TrimStart('[').TrimEnd(']')
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(item => double.Parse(item, NumberStyles.Float, CultureInfo.InvariantCulture))
             .ToList();
     }
 }

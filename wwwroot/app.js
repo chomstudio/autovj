@@ -5,6 +5,11 @@ const indicator = document.querySelector('#capture-indicator');
 const trackName = document.querySelector('#track-name');
 const confidence = document.querySelector('#confidence');
 const position = document.querySelector('#position');
+const referenceBpm = document.querySelector('#reference-bpm');
+const inputBpm = document.querySelector('#input-bpm');
+const tempoRatio = document.querySelector('#tempo-ratio');
+const playbackRate = document.querySelector('#playback-rate');
+const fingerprintMethod = document.querySelector('#fingerprint-method');
 const trackList = document.querySelector('#track-list');
 const deviceSelect = document.querySelector('#device-select');
 const levelMeter = document.querySelector('#level-meter');
@@ -14,6 +19,7 @@ const transitionMode = document.querySelector('#transition-mode');
 let currentSourceKey = null;
 let activeVideoIndex = 0;
 let resyncToleranceSeconds = 2;
+let playbackRateTolerance = 0.015;
 let updateInProgress = false;
 let lastAppliedMatchRevision = -1;
 let registeredTracks = [];
@@ -116,12 +122,13 @@ async function waitForOpacityTransition(video, durationMilliseconds) {
 }
 
 // 2枚の動画を重ね、設定された時間とブレンドモードでクロスフェードします。
-async function playSource(sourceKey, sourceUrl, seekSeconds = 0) {
+async function playSource(sourceKey, sourceUrl, seekSeconds = 0, rate = 1) {
   const activeVideo = getActiveVideo();
   if (currentSourceKey === sourceKey) {
     activeVideo.loop = true;
     activeVideo.muted = true;
     activeVideo.controls = false;
+    activeVideo.playbackRate = rate;
     await activeVideo.play();
     return;
   }
@@ -142,8 +149,11 @@ async function playSource(sourceKey, sourceUrl, seekSeconds = 0) {
   incomingVideo.loop = true;
   incomingVideo.muted = true;
   incomingVideo.controls = false;
+  incomingVideo.playbackRate = rate;
   incomingVideo.src = sourceUrl;
   await waitForMetadata(incomingVideo);
+  // src設定で再生速度が既定値へ戻るブラウザがあるため、読込後に倍率を確定します。
+  incomingVideo.playbackRate = rate;
   incomingVideo.currentTime = Math.min(Math.max(0, seekSeconds), Math.max(0, incomingVideo.duration - 0.05));
   await incomingVideo.play();
 
@@ -178,7 +188,7 @@ async function playSource(sourceKey, sourceUrl, seekSeconds = 0) {
 
 // 未検出時の汎用動画を先頭から連続ループ再生します。
 async function playFallback() {
-  await playSource('fallback', '/api/material/common', 0);
+  await playSource('fallback', '/api/material/common', 0, 1);
 }
 
 // 音声トラックから指紋を生成済みの登録動画を一覧へ描画します。
@@ -190,7 +200,7 @@ async function loadTracks() {
     const name = document.createElement('strong');
     const duration = document.createElement('span');
     name.textContent = track.videoFile;
-    duration.textContent = formatTime(track.durationSeconds);
+    duration.textContent = `${formatTime(track.durationSeconds)} / ${track.bpm === null ? 'BPM未解析' : `BPM ${track.bpm.toFixed(1)}`}`;
     item.append(name, duration);
     return item;
   }));
@@ -232,6 +242,10 @@ async function updateStatus() {
     trackName.textContent = state.trackName || '—';
     confidence.textContent = `${(state.confidence * 100).toFixed(1)}%`;
     position.textContent = formatTime(state.positionSeconds);
+    referenceBpm.textContent = state.referenceBpm === null ? '—' : state.referenceBpm.toFixed(1);
+    inputBpm.textContent = state.inputBpm === null ? '—' : state.inputBpm.toFixed(1);
+    tempoRatio.textContent = state.tempoRatio.toFixed(2);
+    fingerprintMethod.textContent = `${state.fingerprintMethod} v${state.fingerprintVersion}`;
     const levelPercent = Math.round(state.inputLevel * 100);
     levelFill.style.width = `${levelPercent}%`;
     levelMeter.setAttribute('aria-valuenow', String(levelPercent));
@@ -244,21 +258,26 @@ async function updateStatus() {
     if (state.trackId !== null) {
       const sourceKey = `track-${state.trackId}`;
       if (currentSourceKey !== sourceKey) {
-        await playSource(sourceKey, `/api/media/${state.trackId}`, state.positionSeconds);
+        await playSource(sourceKey, `/api/media/${state.trackId}`, state.positionSeconds, state.tempoRatio);
         lastAppliedMatchRevision = state.matchRevision;
       } else if (lastAppliedMatchRevision !== state.matchRevision) {
         const activeVideo = getActiveVideo();
         if (Math.abs(activeVideo.currentTime - state.positionSeconds) > resyncToleranceSeconds) {
           activeVideo.currentTime = state.positionSeconds;
         }
+        if (Math.abs(activeVideo.playbackRate - state.tempoRatio) > playbackRateTolerance) {
+          activeVideo.playbackRate = state.tempoRatio;
+        }
         lastAppliedMatchRevision = state.matchRevision;
       }
       const currentVideo = getActiveVideo();
+      playbackRate.textContent = currentVideo.playbackRate.toFixed(2);
       if (currentVideo.paused) {
         await currentVideo.play();
       }
     } else {
       await playFallback();
+      playbackRate.textContent = '1.00';
     }
   } catch (error) {
     statusMessage.textContent = `通信エラー: ${error.message}`;
@@ -307,6 +326,7 @@ async function initialize() {
     request('/api/client-config'),
   ]);
   resyncToleranceSeconds = clientConfig.resyncToleranceSeconds;
+  playbackRateTolerance = clientConfig.playbackRateTolerance;
   transitionConfig = clientConfig.transition;
   document.querySelector('#test-controls').hidden = !clientConfig.testApiEnabled;
   await loadDevices(state.selectedInputDevice);

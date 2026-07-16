@@ -67,6 +67,58 @@ public sealed class FfmpegService(AppConfig config)
         return samples;
     }
 
+    // 指定位置の音声へテンポ・EQ条件を適用し、ベンチマーク用PCMを生成します。
+    public async Task<float[]> DecodeBenchmarkQueryAsync(
+        string path,
+        double startSeconds,
+        double outputDurationSeconds,
+        double tempoRatio,
+        string condition,
+        CancellationToken cancellationToken = default)
+    {
+        var startInfo = CreateStartInfo(config.Ffmpeg.Path);
+        foreach (var argument in new[] { "-v", "error", "-ss", startSeconds.ToString(CultureInfo.InvariantCulture), "-i", path })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        var filters = new List<string>();
+        if (condition == "speed-and-pitch")
+        {
+            filters.Add($"asetrate={config.Audio.SampleRate.ToString(CultureInfo.InvariantCulture)}*{tempoRatio.ToString(CultureInfo.InvariantCulture)}");
+            filters.Add($"aresample={config.Audio.SampleRate.ToString(CultureInfo.InvariantCulture)}");
+        }
+        else
+        {
+            filters.Add($"atempo={tempoRatio.ToString(CultureInfo.InvariantCulture)}");
+        }
+        if (condition == "highpass") filters.Add("highpass=f=1200");
+        if (condition == "lowpass") filters.Add("lowpass=f=500");
+        if (condition == "filter-release") filters.Add($"highpass=f=1200:enable='lt(t,{(outputDurationSeconds / 2).ToString(CultureInfo.InvariantCulture)})'");
+
+        foreach (var argument in new[]
+        {
+            "-vn", "-af", string.Join(',', filters), "-t", outputDurationSeconds.ToString(CultureInfo.InvariantCulture),
+            "-ac", "1", "-ar", config.Audio.SampleRate.ToString(CultureInfo.InvariantCulture), "-f", "f32le", "pipe:1"
+        })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = new Process { StartInfo = startInfo };
+        process.Start();
+        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        await using var buffer = new MemoryStream();
+        await process.StandardOutput.BaseStream.CopyToAsync(buffer, cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        var error = await errorTask;
+        if (process.ExitCode != 0) throw new InvalidOperationException($"FFmpegのベンチマーク音源生成に失敗しました: {error.Trim()}");
+        var bytes = buffer.ToArray();
+        var samples = new float[bytes.Length / sizeof(float)];
+        Buffer.BlockCopy(bytes, 0, samples, 0, samples.Length * sizeof(float));
+        return samples;
+    }
+
     // 外部コマンドを実行し、標準出力を文字列として取得します。
     private static async Task<string> RunTextAsync(string executable, IEnumerable<string> arguments, CancellationToken cancellationToken)
     {

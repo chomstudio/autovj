@@ -14,6 +14,7 @@ builder.Services.AddSingleton<FingerprintService>();
 builder.Services.AddSingleton<DatabaseService>();
 builder.Services.AddSingleton<AudioCaptureService>();
 builder.Services.AddSingleton<SelfTestService>();
+builder.Services.AddSingleton<TempoBenchmarkService>();
 builder.Services.AddHostedService<DetectionWorker>();
 
 var app = builder.Build();
@@ -41,6 +42,13 @@ if (args.Contains("--benchmark-detection", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
+if (args.Contains("--benchmark-tempo", StringComparer.OrdinalIgnoreCase))
+{
+    var benchmark = app.Services.GetRequiredService<TempoBenchmarkService>();
+    Environment.ExitCode = await benchmark.RunAsync() ? 0 : 1;
+    return;
+}
+
 // 現在の検出状態をブラウザへ返します。
 app.MapGet("/api/status", (RuntimeState state) => Results.Ok(state.GetSnapshot()));
 
@@ -48,6 +56,7 @@ app.MapGet("/api/status", (RuntimeState state) => Results.Ok(state.GetSnapshot()
 app.MapGet("/api/client-config", () => Results.Ok(new
 {
     resyncToleranceSeconds = config.Playback.ResyncToleranceSeconds,
+    playbackRateTolerance = config.Detection.PlaybackRateTolerance,
     detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds,
     testApiEnabled = Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1",
     transition = new
@@ -134,7 +143,11 @@ if (Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1")
             return Results.NotFound();
         }
         state.SetCapture(true, "UI試験中");
-        state.SetMatch(new MatchResult(track, 0.99, 15), TimeSpan.FromSeconds(config.Playback.DetectionLostTimeoutSeconds));
+        var tempoRatio = track.Bpm is null ? 1.0 : 1.10;
+        state.SetMatch(new MatchResult(
+            track, 0.99, 15, tempoRatio, track.Bpm, track.Bpm * tempoRatio,
+            track.FingerprintMethod, track.FingerprintVersion),
+            TimeSpan.FromSeconds(config.Playback.DetectionLostTimeoutSeconds));
         return Results.Ok();
     });
 

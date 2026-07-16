@@ -38,9 +38,8 @@ public sealed class DetectionWorker(
                     state.SetMatch(new MatchResult(null, 0, 0), TimeSpan.FromSeconds(config.Playback.DetectionLostTimeoutSeconds));
                     continue;
                 }
-                var query = fingerprints.Create(samples);
                 var tracks = await database.GetTracksAsync();
-                var result = fingerprints.Match(query, tracks, config.Detection.TentativeConfidenceThreshold);
+                var result = fingerprints.Match(samples, tracks, config.Detection.TentativeConfidenceThreshold);
                 if (result.Track is null)
                 {
                     ResetTentativeMatch();

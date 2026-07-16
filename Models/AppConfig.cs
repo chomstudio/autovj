@@ -41,6 +41,8 @@ public sealed class DetectionConfig
     public double TentativeConfidenceThreshold { get; set; } = 0.55;
     public int TentativeConfirmationCount { get; set; } = 2;
     public double MinimumInputDecibels { get; set; } = -48;
+    public List<double> TempoRatios { get; set; } = [0.90, 0.93, 0.95, 1.00, 1.05, 1.10, 1.15, 1.17];
+    public double PlaybackRateTolerance { get; set; } = 0.015;
 }
 
 public sealed class PlaybackConfig

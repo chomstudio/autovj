@@ -22,6 +22,7 @@
     <Compile Include="..\Services\DatabaseService.cs" Link="Services\DatabaseService.cs" />
     <Compile Include="..\Services\FfmpegService.cs" Link="Services\FfmpegService.cs" />
     <Compile Include="..\Services\FingerprintService.cs" Link="Services\FingerprintService.cs" />
+    <Compile Include="..\Services\IAudioFingerprintDetector.cs" Link="Services\IAudioFingerprintDetector.cs" />
     <Compile Include="..\Services\MediaCatalogService.cs" Link="Services\MediaCatalogService.cs" />
   </ItemGroup>
 
