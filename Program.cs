@@ -57,6 +57,13 @@ app.MapGet("/api/client-config", () => Results.Ok(new
 {
     resyncToleranceSeconds = config.Playback.ResyncToleranceSeconds,
     playbackRateTolerance = config.Detection.PlaybackRateTolerance,
+    randomizeCommonStart = config.Playback.RandomizeCommonStart,
+    glitch = new
+    {
+        enabled = config.Glitch.Enabled,
+        confidenceThreshold = config.Glitch.ConfidenceThreshold,
+        files = config.Glitch.Files.Select((_, index) => $"/api/material/glitch/{index}").ToArray()
+    },
     detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds,
     testApiEnabled = Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1",
     transition = new
@@ -68,6 +75,34 @@ app.MapGet("/api/client-config", () => Results.Ok(new
         blendModes = NormalizeBlendModes(config.Transition.BlendModes)
     }
 }));
+
+// 詳細設定画面で編集できる現在値とブレンドモード候補を返します。
+app.MapGet("/api/settings", () => Results.Ok(new
+{
+    detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds,
+    resyncToleranceSeconds = config.Playback.ResyncToleranceSeconds,
+    transitionEnabled = config.Transition.Enabled,
+    transitionDurationMilliseconds = config.Transition.DurationMilliseconds,
+    blendModesEnabled = config.Transition.BlendModesEnabled,
+    randomizeBlendMode = config.Transition.RandomizeBlendMode,
+    blendModes = config.Transition.BlendModes,
+    availableBlendModes = new[] { "screen", "multiply", "overlay", "soft-light", "difference" },
+    glitchConfidenceThreshold = config.Glitch.ConfidenceThreshold
+}));
+
+// 詳細設定画面の対象項目をconfig.yamlへ保存し、実行中設定へ即時反映します。
+app.MapPost("/api/settings", (UiSettingsRequest settings) =>
+{
+    try
+    {
+        ConfigService.SaveUiSettings(configPath, config, settings);
+        return Results.Ok(new { message = "設定を保存して反映しました。" });
+    }
+    catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
+    {
+        return Results.Problem(exception.Message, statusCode: StatusCodes.Status400BadRequest);
+    }
+});
 
 // DBに登録されている音源と動画の対応一覧を指紋BLOBなしで返します。
 app.MapGet("/api/tracks", async (DatabaseService service) => Results.Ok(await service.GetTrackSummariesAsync()));
@@ -132,6 +167,18 @@ app.MapGet("/api/material/common", () =>
         : Results.File(path, "video/mp4", enableRangeProcessing: true);
 });
 
+// 設定されたグリッチ素材だけを番号で特定し、Range要求対応で配信します。
+app.MapGet("/api/material/glitch/{index:int}", (int index) =>
+{
+    if (index < 0 || index >= config.Glitch.Files.Count) return Results.NotFound();
+    var fileName = config.Glitch.Files[index];
+    if (!string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal)) return Results.NotFound();
+    var path = Path.GetFullPath(Path.Combine(config.Media.MaterialVideoDir, fileName));
+    return !File.Exists(path)
+        ? Results.NotFound()
+        : Results.File(path, "video/mp4", enableRangeProcessing: true);
+});
+
 if (Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1")
 {
     // 自動UI試験時だけ、任意の登録動画を検出済み状態へ切り替えます。
@@ -157,11 +204,30 @@ if (Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1")
         state.SetCapture(false, "UI試験・汎用動画");
         return Results.Ok();
     });
+
+    // 自動UI試験時だけ、現在曲を維持したまま信頼度が低下した状態を作ります。
+    app.MapPost("/api/test/weak", (RuntimeState state) =>
+    {
+        state.SetMatch(new MatchResult(null, 0.20, 0), TimeSpan.FromSeconds(config.Playback.DetectionLostTimeoutSeconds));
+        return Results.Ok();
+    });
 }
 
 var operationUrl = $"http://{config.Server.Host}:{config.Server.Port}";
 Console.WriteLine($"AutoVJ操作画面: {operationUrl}");
 Console.WriteLine($"音声入力: {config.Audio.PreferredInput}");
+
+// 通常起動では既定デバイスの監視を自動開始し、失敗してもWeb UIは起動します。
+var captureService = app.Services.GetRequiredService<AudioCaptureService>();
+try
+{
+    captureService.Start();
+}
+catch (Exception exception)
+{
+    app.Logger.LogWarning(exception, "既定の音声入力を自動開始できませんでした。");
+    app.Services.GetRequiredService<RuntimeState>().SetCapture(false, $"自動開始失敗: {exception.Message}");
+}
 
 // サーバー待受開始後に、OS既定ブラウザで操作画面を一度だけ開きます。
 app.Lifetime.ApplicationStarted.Register(() =>

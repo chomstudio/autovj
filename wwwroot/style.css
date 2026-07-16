@@ -6,24 +6,29 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; }
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 100vh; }
-.stage { position: relative; display: grid; place-items: center; overflow: hidden; isolation: isolate; background: #000; }
+html, body { width: 100%; height: 100%; }
+body { margin: 0; overflow: hidden; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; width: 100%; height: 100vh; overflow: hidden; }
+.stage { position: relative; display: grid; min-width: 0; min-height: 0; place-items: center; overflow: hidden; isolation: isolate; background: #000; }
 .video-stack { position: absolute; inset: 0; overflow: hidden; background: #000; }
-.output-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; background: #000; will-change: opacity; }
+.output-video, .glitch-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; background: #000; }
+.output-video { will-change: opacity; }
+.glitch-video { z-index: 4; pointer-events: none; background: transparent; mix-blend-mode: screen; filter: contrast(1.25) saturate(1.1); transition: opacity 140ms linear; }
+.glitch-video.active { opacity: .72; }
 .idle-message { position: absolute; color: #758087; letter-spacing: .08em; }
-.panel { padding: 32px; overflow-y: auto; border-left: 1px solid #252b30; background: #111519; }
+.panel { min-height: 0; padding: 32px; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid #252b30; background: #111519; }
 .eyebrow { margin: 0 0 6px; color: #42e6ba; font-size: 12px; font-weight: 700; letter-spacing: .18em; }
 h1 { margin: 0 0 28px; font-size: 28px; }
-h2 { margin-top: 32px; font-size: 14px; color: #aab5bb; }
+h2 { margin: 0; font-size: 24px; }
+h3 { margin: 0 0 14px; color: #c3cdd1; font-size: 14px; }
 .status-card { display: flex; gap: 14px; align-items: center; padding: 16px; border: 1px solid #2b3338; border-radius: 10px; background: #171c20; }
 .status-card p { margin: 0; }
-.label, dt { color: #89959b; font-size: 12px; }
+.label, dt, .field-label { color: #89959b; font-size: 12px; }
 .indicator { width: 11px; height: 11px; border-radius: 50%; background: #657078; box-shadow: 0 0 0 5px #65707822; }
 .indicator.active { background: #42e6ba; box-shadow: 0 0 0 5px #42e6ba22; }
 .input-controls { display: grid; gap: 8px; margin-top: 18px; }
 .input-controls label, .level-heading { color: #89959b; font-size: 12px; }
-select { width: 100%; padding: 10px; border: 1px solid #364047; border-radius: 7px; background: #20272c; color: inherit; }
+select, input { width: 100%; padding: 10px; border: 1px solid #364047; border-radius: 7px; background: #20272c; color: inherit; }
 .level-heading { display: flex; justify-content: space-between; margin-top: 6px; }
 .level-meter { height: 10px; overflow: hidden; border-radius: 999px; background: #293137; }
 .level-meter span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #42e6ba 0 72%, #efc84a 72% 90%, #ee675d 90%); transition: width 100ms linear; }
@@ -31,15 +36,41 @@ select { width: 100%; padding: 10px; border: 1px solid #364047; border-radius: 7
 .metrics div { display: flex; justify-content: space-between; gap: 20px; }
 .metrics dd { margin: 0; text-align: right; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.actions .wide { grid-column: 1 / -1; }
 button { padding: 11px 12px; border: 1px solid #364047; border-radius: 7px; background: #20272c; color: inherit; cursor: pointer; }
 button:hover { border-color: #5d6b73; }
 button.primary { border-color: #42e6ba; background: #133f35; }
 button:disabled { cursor: wait; opacity: .55; }
-.track-list { display: grid; gap: 8px; }
+
+.settings-overlay { position: fixed; z-index: 20; inset: 0; padding: 28px; background: #050709d9; backdrop-filter: blur(7px); }
+.settings-overlay[hidden] { display: none; }
+.settings-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(1040px, 100%); height: min(820px, 100%); margin: auto; overflow: hidden; border: 1px solid #344047; border-radius: 14px; background: #111519; box-shadow: 0 24px 80px #000b; }
+.settings-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 28px; border-bottom: 1px solid #283036; }
+.live-status { margin: 0; color: #42e6ba; font-size: 12px; }
+.settings-content { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(360px, 1.2fr); gap: 24px; min-height: 0; padding: 24px 28px 28px; overflow: hidden; }
+.settings-tracks { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.track-list { display: grid; align-content: start; gap: 8px; min-height: 0; padding-right: 8px; overflow-y: scroll; overscroll-behavior: contain; }
 .track-list article { display: grid; gap: 4px; padding: 10px; border-radius: 6px; background: #191f23; font-size: 12px; }
 .track-list span { color: #8f9ba1; }
+.settings-form { min-height: 0; padding-right: 8px; overflow-y: auto; }
+fieldset { display: grid; gap: 12px; margin: 0 0 18px; padding: 16px; border: 1px solid #2b3338; border-radius: 9px; }
+legend { padding: 0 7px; color: #c3cdd1; font-size: 13px; }
+.settings-form label { display: grid; gap: 6px; color: #aab5bb; font-size: 12px; }
+.settings-form .check-row { display: flex; align-items: center; gap: 9px; }
+.check-row input, .check-grid input { width: auto; margin: 0; accent-color: #42e6ba; }
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-top: 8px; }
+.check-grid label { display: flex; align-items: center; gap: 8px; }
+.settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.settings-error { padding: 10px; border: 1px solid #a94b45; border-radius: 7px; background: #4c201e; color: #ffc9c5; font-size: 12px; }
+.test-controls { grid-column: 1 / -1; padding-top: 16px; border-top: 1px solid #283036; }
+.test-controls button { margin-right: 8px; }
 
 @media (max-width: 800px) {
-  .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
-  .panel { border-top: 1px solid #252b30; border-left: 0; }
+  .layout { grid-template-columns: 1fr; grid-template-rows: 55vh minmax(0, 45vh); }
+  .panel { padding: 22px; border-top: 1px solid #252b30; border-left: 0; }
+  .settings-overlay { padding: 12px; }
+  .settings-content { grid-template-columns: 1fr; overflow-y: auto; }
+  .settings-tracks { min-height: 240px; }
+  .track-list { max-height: 220px; }
+  .settings-form { overflow: visible; }
 }

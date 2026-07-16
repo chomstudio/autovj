@@ -8,6 +8,7 @@ public sealed class AppConfig
     public DetectionConfig Detection { get; } = new();
     public PlaybackConfig Playback { get; } = new();
     public TransitionConfig Transition { get; } = new();
+    public GlitchConfig Glitch { get; } = new();
     public StorageConfig Storage { get; } = new();
     public FfmpegConfig Ffmpeg { get; } = new();
 }
@@ -49,6 +50,7 @@ public sealed class PlaybackConfig
 {
     public int DetectionLostTimeoutSeconds { get; set; } = 10;
     public double ResyncToleranceSeconds { get; set; } = 2;
+    public bool RandomizeCommonStart { get; set; } = true;
 }
 
 public sealed class TransitionConfig
@@ -58,6 +60,13 @@ public sealed class TransitionConfig
     public bool BlendModesEnabled { get; set; } = true;
     public bool RandomizeBlendMode { get; set; } = true;
     public List<string> BlendModes { get; set; } = ["screen", "multiply", "overlay", "soft-light", "difference"];
+}
+
+public sealed class GlitchConfig
+{
+    public bool Enabled { get; set; } = true;
+    public double ConfidenceThreshold { get; set; } = 0.25;
+    public List<string> Files { get; set; } = ["glitch1.mp4", "glitch2.mp4", "glitch3.mp4", "glitch4.mp4"];
 }
 
 public sealed class StorageConfig
