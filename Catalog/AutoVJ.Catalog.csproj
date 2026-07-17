@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <Compile Include="..\Models\AppConfig.cs" Link="Models\AppConfig.cs" />
+    <Compile Include="..\Models\AudioDeviceRequest.cs" Link="Models\AudioDeviceRequest.cs" />
     <Compile Include="..\Models\TrackRecord.cs" Link="Models\TrackRecord.cs" />
     <Compile Include="..\Models\UiSettings.cs" Link="Models\UiSettings.cs" />
     <Compile Include="..\Services\ConfigService.cs" Link="Services\ConfigService.cs" />

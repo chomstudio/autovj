@@ -4,9 +4,13 @@
 bin/
 obj/
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/*.lock
 *.log
 AGENTS.md
 codex-docs/
 .agents/
 .codex/
+.tools/
+.build/

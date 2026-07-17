@@ -15,25 +15,20 @@ pause
 exit /b 1
 
 :dotnet_ready
-if not exist "%~dp0.build\Catalog\AutoVJ.Catalog.dll" (
-    echo AutoVJ.Catalog has not been built.
+if not exist "%~dp0.build\AutoVJ\AutoVJ.dll" (
+    echo AutoVJ has not been built.
     echo Run setup-and-run.cmd first.
     pause
     exit /b 1
 )
 
 set "PATH=%~dp0.tools\ffmpeg\bin;%PATH%"
-"%DOTNET_EXE%" "%~dp0.build\Catalog\AutoVJ.Catalog.dll" scan %*
+"%DOTNET_EXE%" "%~dp0.build\AutoVJ\AutoVJ.dll" %*
 set "EXIT_CODE=%ERRORLEVEL%"
 
+if "%EXIT_CODE%"=="0" exit /b 0
 echo.
-if not "%EXIT_CODE%"=="0" goto scan_error
-echo Scan completed.
-goto scan_end
-
-:scan_error
-echo Scan failed. Exit code: %EXIT_CODE%
-
-:scan_end
+echo AutoVJ stopped with exit code %EXIT_CODE%.
 pause
 exit /b %EXIT_CODE%
+

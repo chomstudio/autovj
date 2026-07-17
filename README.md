@@ -16,18 +16,51 @@ LINE入力などの録音デバイスのほか、PCで再生中の音声を取�
 ## 動作環境
 
 - Windows 11 64bit
-- .NET SDK 10
-- `ffmpeg` と `ffprobe`
+- インターネット接続（初回セットアップ時）
 - MP4を再生できるWebブラウザ
 - LINE入力などの録音デバイス、またはWASAPIループバックを利用できる再生デバイス
 
-`ffmpeg` と `ffprobe` は、コマンドプロンプトやPowerShellから実行できるようPATHを設定してください。
+初回セットアップスクリプトが、必要に応じて .NET 10 SDK、NuGetパッケージ、`ffmpeg`、`ffprobe` を自動的にダウンロードします。管理者権限やシステム全体のPATH変更は必要ありません。
 
-## セットアップ
+## 自動セットアップ
 
-### 1. 動画素材を配置する
+GitHubからリポジトリを `git clone` したあと、プロジェクトフォルダ内の次のファイルをダブルクリックします。
 
-プロジェクトフォルダ内へ、次のようにMP4を配置します。
+```text
+setup-and-run.cmd
+```
+
+スクリプトは次の処理を自動的に行います。
+
+1. 利用可能な .NET 10 SDKを確認し、見つからなければプロジェクト内へダウンロード
+2. Windows 64bit向けのFFmpeg LGPL版をプロジェクト内へダウンロード
+3. 必要なNuGetパッケージをダウンロード
+4. `AutoVJ` と `AutoVJ.Catalog` をRelease構成でビルド
+5. `main-videos` にMP4があれば動画を差分解析
+6. AutoVJを起動
+
+ダウンロードしたツールは `.tools`、ビルド結果は `.build` に保存されます。どちらもGitの管理対象外です。セットアップをやり直しても、動画素材、`config.yaml`、解析済みデータベースは削除されません。
+
+セットアップとビルドだけ行い、AutoVJを起動しない場合はPowerShellから次を実行します。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-and-run.ps1 -SkipRun
+```
+
+### 手動セットアップ
+
+自動セットアップを使用しない場合は、.NET SDK 10と `ffmpeg`・`ffprobe` を用意し、PATHを設定してください。その後、プロジェクトフォルダで次を実行します。
+
+```powershell
+dotnet restore --source https://api.nuget.org/v3/index.json
+dotnet restore Catalog\AutoVJ.Catalog.csproj --source https://api.nuget.org/v3/index.json
+dotnet publish AutoVJ.csproj --configuration Release --no-restore --output .build\AutoVJ
+dotnet publish Catalog\AutoVJ.Catalog.csproj --configuration Release --no-restore --output .build\Catalog
+```
+
+## 動画素材の準備
+
+自動セットアップによって作成されたフォルダへ、次のようにMP4を配置します。
 
 ```text
 main-videos/
@@ -49,34 +82,15 @@ material-videos/
 - `glitch1.mp4`～`glitch4.mp4` は、検出信頼度が下がったときに重ねる演出素材です。
 - ファイル名や素材フォルダは `config.yaml` で変更できます。
 
-### 2. 必要なパッケージを準備する
+### 動画を解析する
 
-初回だけ、プロジェクトフォルダで次を実行します。
-
-```powershell
-dotnet restore --source https://api.nuget.org/v3/index.json
-dotnet restore Catalog\AutoVJ.Catalog.csproj --source https://api.nuget.org/v3/index.json
-```
-
-### 3. 動画を解析する
-
-次のいずれかを実行します。
-
-```powershell
-dotnet run --project Catalog\AutoVJ.Catalog.csproj --no-restore -- scan
-```
-
-または、Windows上で `scan-videos.cmd` をダブルクリックします。
+`scan-videos.cmd` をダブルクリックします。
 
 解析済みのMP4は、ファイルが更新されない限り再解析されません。動画を追加・更新・削除した場合は、同じコマンドをもう一度実行してください。
 
 ## 起動
 
-プロジェクトフォルダで次を実行します。
-
-```powershell
-dotnet run --no-restore
-```
+初回セットアップ後は、`run-autovj.cmd` をダブルクリックして起動します。
 
 起動すると既定ブラウザでウェルカムページが開き、設定済みの音声入力の監視が始まります。自動的に開かない場合は、次のURLへアクセスしてください。
 
@@ -119,8 +133,8 @@ http://127.0.0.1:5180/
 
 オプションは次のように指定します。
 
-```powershell
-dotnet run --no-restore -- --lan --port 5180 --pin 1234
+```cmd
+run-autovj.cmd --lan --port 5180 --pin 1234
 ```
 
 ## LAN公開とPIN
@@ -165,6 +179,8 @@ Copyright (c) 2026 AutoVJ contributors.
 AutoVJで使用する音源、動画、演出素材については、利用者自身が使用・上映・配信に必要な権利を確認してください。
 
 FFmpeg、.NETおよびその他の第三者製ソフトウェアの著作権とライセンスは、それぞれの権利者に帰属します。
+
+自動セットアップでは、.NET SDKをMicrosoft公式配布元から取得し、FFmpegのWindows向けLGPLビルドを[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)から取得します。ダウンロードしたFFmpegに付属するライセンス文書は `.tools/ffmpeg` 内に保存されます。
 
 ## バージョン
 
