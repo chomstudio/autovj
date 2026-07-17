@@ -31,7 +31,9 @@ public static class ConfigService
                 continue;
             }
 
-            var separator = line.IndexOf(':');
+            var separator = section.Equals("audio_position_offsets", StringComparison.OrdinalIgnoreCase)
+                ? line.LastIndexOf(':')
+                : line.IndexOf(':');
             if (separator < 0)
             {
                 continue;
@@ -39,6 +41,12 @@ public static class ConfigService
 
             var key = line[..separator].Trim();
             var value = line[(separator + 1)..].Trim().Trim('"', '\'');
+            if (section.Equals("audio_position_offsets", StringComparison.OrdinalIgnoreCase))
+            {
+                var sourceId = key.Trim('"', '\'');
+                config.Audio.PositionOffsetsMilliseconds[sourceId] = int.Parse(value, CultureInfo.InvariantCulture);
+                continue;
+            }
             Apply(config, section, key, value);
         }
 
@@ -56,6 +64,7 @@ public static class ConfigService
             case "server.host": config.Server.Host = value; break;
             case "server.port": config.Server.Port = int.Parse(value, culture); break;
             case "server.auto_open_browser": config.Server.AutoOpenBrowser = bool.Parse(value); break;
+            case "server.lan_pin": config.Server.LanPin = value; break;
             case "media.input_audio_dir": config.Media.InputAudioDir = value; break;
             case "media.main_video_dir": config.Media.MainVideoDir = value; break;
             case "media.material_video_dir": config.Media.MaterialVideoDir = value; break;
@@ -95,6 +104,13 @@ public static class ConfigService
     // 詳細設定画面で許可された項目だけを検証し、実行中設定とYAMLへ保存します。
     public static void SaveUiSettings(string path, AppConfig config, UiSettingsRequest settings)
     {
+        if (string.IsNullOrWhiteSpace(settings.SelectedInputSourceId)
+            || !(settings.SelectedInputSourceId.StartsWith("capture:", StringComparison.OrdinalIgnoreCase)
+                || settings.SelectedInputSourceId.StartsWith("loopback:", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException("再生位置補正を保存する入力元が不正です。", nameof(settings.SelectedInputSourceId));
+        }
+        if (settings.PositionOffsetMilliseconds is < -60000 or > 60000) throw new ArgumentOutOfRangeException(nameof(settings.PositionOffsetMilliseconds), "再生位置補正は-60000〜60000ミリ秒で指定してください。");
         if (settings.DetectionLostTimeoutSeconds is < 1 or > 120) throw new ArgumentOutOfRangeException(nameof(settings.DetectionLostTimeoutSeconds), "未検出待機時間は1〜120秒で指定してください。");
         if (settings.ResyncToleranceSeconds is < 0.1 or > 30) throw new ArgumentOutOfRangeException(nameof(settings.ResyncToleranceSeconds), "再同期許容差は0.1〜30秒で指定してください。");
         if (settings.MinimumPlaybackRate is < 0.1 or > 4) throw new ArgumentOutOfRangeException(nameof(settings.MinimumPlaybackRate), "再生倍率の下限は0.1〜4倍で指定してください。");
@@ -115,6 +131,14 @@ public static class ConfigService
 
         lock (SaveLock)
         {
+            if (settings.PositionOffsetMilliseconds == 0)
+            {
+                config.Audio.PositionOffsetsMilliseconds.Remove(settings.SelectedInputSourceId);
+            }
+            else
+            {
+                config.Audio.PositionOffsetsMilliseconds[settings.SelectedInputSourceId] = settings.PositionOffsetMilliseconds;
+            }
             config.Playback.DetectionLostTimeoutSeconds = settings.DetectionLostTimeoutSeconds;
             config.Playback.ResyncToleranceSeconds = settings.ResyncToleranceSeconds;
             config.Playback.MinimumRate = settings.MinimumPlaybackRate;
@@ -144,6 +168,7 @@ public static class ConfigService
                 ["glitch.confidence_threshold"] = settings.GlitchConfidenceThreshold.ToString(CultureInfo.InvariantCulture)
             };
             RewriteKnownValues(path, replacements);
+            SavePositionOffset(path, settings.SelectedInputSourceId, settings.PositionOffsetMilliseconds);
         }
     }
 
@@ -183,6 +208,55 @@ public static class ConfigService
                 var indent = lines[index][..(lines[index].Length - lines[index].TrimStart().Length)];
                 lines[index] = $"{indent}{key}: {value}";
             }
+        }
+
+        var temporaryPath = $"{path}.tmp";
+        File.WriteAllLines(temporaryPath, lines);
+        File.Move(temporaryPath, path, true);
+    }
+
+    // 選択デバイスの補正だけを専用YAMLセクションへ追加・更新・削除します。
+    private static void SavePositionOffset(string path, string sourceId, int milliseconds)
+    {
+        var lines = File.ReadAllLines(path).ToList();
+        var sectionIndex = lines.FindIndex(line => line.Trim().Equals("audio_position_offsets:", StringComparison.OrdinalIgnoreCase));
+        if (sectionIndex < 0)
+        {
+            lines.Add(string.Empty);
+            lines.Add("audio_position_offsets:");
+            sectionIndex = lines.Count - 1;
+        }
+
+        var sectionEnd = sectionIndex + 1;
+        while (sectionEnd < lines.Count
+            && (string.IsNullOrWhiteSpace(lines[sectionEnd]) || char.IsWhiteSpace(lines[sectionEnd][0])))
+        {
+            sectionEnd++;
+        }
+        var existingIndex = -1;
+        for (var index = sectionIndex + 1; index < sectionEnd; index++)
+        {
+            var trimmed = lines[index].Trim();
+            var separator = trimmed.LastIndexOf(':');
+            if (separator < 0) continue;
+            var existingSourceId = trimmed[..separator].Trim().Trim('"', '\'');
+            if (existingSourceId.Equals(sourceId, StringComparison.OrdinalIgnoreCase))
+            {
+                existingIndex = index;
+                break;
+            }
+        }
+
+        if (milliseconds == 0)
+        {
+            if (existingIndex >= 0) lines.RemoveAt(existingIndex);
+        }
+        else
+        {
+            var escapedSourceId = sourceId.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            var line = $"  \"{escapedSourceId}\": {milliseconds.ToString(CultureInfo.InvariantCulture)}";
+            if (existingIndex >= 0) lines[existingIndex] = line;
+            else lines.Insert(sectionEnd, line);
         }
 
         var temporaryPath = $"{path}.tmp";

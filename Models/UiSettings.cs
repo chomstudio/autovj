@@ -1,6 +1,8 @@
 namespace AutoVJ.Models;
 
 public sealed record UiSettingsRequest(
+    string SelectedInputSourceId,
+    int PositionOffsetMilliseconds,
     int DetectionLostTimeoutSeconds,
     double ResyncToleranceSeconds,
     double MinimumPlaybackRate,

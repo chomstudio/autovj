@@ -6,6 +6,7 @@ let activeVideoIndex = 0;
 let updateInProgress = false;
 let lastAppliedMatchRevision = -1;
 let lastTransitionRevision = -1;
+let lastPositionOffsetMilliseconds = null;
 let activeGlitchIndex = null;
 let clientConfig = {
   resyncToleranceSeconds: 2,
@@ -195,25 +196,32 @@ async function updateStatus() {
     const transitionMode = state.transitionBlendMode || 'normal';
     if (state.trackId !== null) {
       const sourceKey = `track-${state.trackId}`;
+      const targetPosition = Math.max(0, state.positionSeconds + state.positionOffsetMilliseconds / 1000);
       if (currentSourceKey !== sourceKey) {
-        await playSource(sourceKey, `/api/media/${state.trackId}`, state.positionSeconds, state.tempoRatio, null, transitionMode);
+        await playSource(sourceKey, `/api/media/${state.trackId}`, targetPosition, state.tempoRatio, null, transitionMode);
         lastAppliedMatchRevision = state.matchRevision;
+        lastPositionOffsetMilliseconds = state.positionOffsetMilliseconds;
         lastTransitionRevision = state.transitionRevision;
       } else if (lastAppliedMatchRevision !== state.matchRevision) {
         const activeVideo = getActiveVideo();
-        if (Math.abs(activeVideo.currentTime - state.positionSeconds) > clientConfig.resyncToleranceSeconds) {
-          activeVideo.currentTime = state.positionSeconds;
+        if (Math.abs(activeVideo.currentTime - targetPosition) > clientConfig.resyncToleranceSeconds) {
+          activeVideo.currentTime = targetPosition;
         }
         if (Math.abs(activeVideo.playbackRate - state.tempoRatio) > clientConfig.playbackRateTolerance) {
           activeVideo.playbackRate = state.tempoRatio;
         }
         lastAppliedMatchRevision = state.matchRevision;
       }
+      if (lastPositionOffsetMilliseconds !== state.positionOffsetMilliseconds) {
+        getActiveVideo().currentTime = Math.min(targetPosition, Math.max(0, getActiveVideo().duration - 0.05));
+        lastPositionOffsetMilliseconds = state.positionOffsetMilliseconds;
+      }
       const desiredRate = Math.min(clientConfig.maximumPlaybackRate, Math.max(clientConfig.minimumPlaybackRate, state.tempoRatio));
       if (Math.abs(getActiveVideo().playbackRate - desiredRate) > clientConfig.playbackRateTolerance) {
         getActiveVideo().playbackRate = desiredRate;
       }
     } else {
+      lastPositionOffsetMilliseconds = null;
       const startFraction = clientConfig.randomizeCommonStart ? state.commonStartFraction : 0;
       await playSource('fallback', '/api/material/common', 0, 1, startFraction, transitionMode);
       lastTransitionRevision = state.transitionRevision;

@@ -6,6 +6,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { min-width: 100%; min-height: 100%; }
 body { margin: 0; background: #080a0d; }
 button, .button-link {
@@ -48,6 +49,11 @@ h2 { margin: 0 0 14px; color: #c3cdd1; font-size: 16px; }
 }
 .welcome-description { margin: 18px 0 28px; color: #a9b4b9; }
 .welcome-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pin-form { display: grid; gap: 10px; margin-bottom: 24px; }
+.pin-form label { color: #aab5bb; font-size: 12px; }
+.pin-form input { text-align: center; font-size: 22px; letter-spacing: .35em; }
+.pin-error { margin: 0; color: #ffaaa4; font-size: 12px; }
+.authenticated-message { margin: 0 0 20px; color: #42e6ba; font-weight: 700; }
 
 /* 再生ページは映像を常に画面全体へ固定します。 */
 .output-page { width: 100vw; height: 100vh; overflow: hidden; background: #000; }

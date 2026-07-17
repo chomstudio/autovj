@@ -17,7 +17,7 @@ public sealed class RuntimeState
         var sourceId = $"{config.Audio.PreferredInputType}:{config.Audio.PreferredInput}";
         _snapshot = new RuntimeSnapshot(
             false, "停止中", sourceId, config.Audio.PreferredInput, config.Audio.PreferredInputType,
-            0, -60, null, 0, 0, null, 0, null, null, 1.0,
+            GetPositionOffset(sourceId), 0, -60, null, 0, 0, null, 0, null, null, 1.0,
             FingerprintService.LegacyMethod, FingerprintService.LegacyVersion,
             0, "normal", null, _random.NextDouble());
     }
@@ -37,6 +37,7 @@ public sealed class RuntimeState
         lock (_sync)
         {
             var fallbackChanged = !running && _snapshot.TrackId is not null;
+            var resolvedSourceId = sourceId ?? _snapshot.SelectedInputSourceId;
             if (!running)
             {
                 _lastSuccessfulMatch = null;
@@ -45,9 +46,10 @@ public sealed class RuntimeState
             {
                 CaptureRunning = running,
                 Message = message,
-                SelectedInputSourceId = sourceId ?? _snapshot.SelectedInputSourceId,
+                SelectedInputSourceId = resolvedSourceId,
                 SelectedInputDevice = deviceName ?? _snapshot.SelectedInputDevice,
                 SelectedInputType = sourceType ?? _snapshot.SelectedInputType,
+                PositionOffsetMilliseconds = GetPositionOffset(resolvedSourceId),
                 InputLevel = running ? _snapshot.InputLevel : 0,
                 InputDecibels = running ? _snapshot.InputDecibels : -60,
                 TrackId = running ? _snapshot.TrackId : null,
@@ -83,7 +85,8 @@ public sealed class RuntimeState
             {
                 SelectedInputSourceId = sourceId,
                 SelectedInputDevice = deviceName,
-                SelectedInputType = sourceType
+                SelectedInputType = sourceType,
+                PositionOffsetMilliseconds = GetPositionOffset(sourceId)
             };
         }
     }
@@ -99,6 +102,7 @@ public sealed class RuntimeState
             _snapshot = _snapshot with
             {
                 TempoRatio = Math.Clamp(_snapshot.TempoRatio, _config.Playback.MinimumRate, _config.Playback.MaximumRate),
+                PositionOffsetMilliseconds = GetPositionOffset(_snapshot.SelectedInputSourceId),
                 GlitchFileIndex = showGlitch
                     ? _snapshot.GlitchFileIndex ?? ChooseGlitchFile()
                     : null
@@ -188,6 +192,12 @@ public sealed class RuntimeState
             ? _random.Next(_config.Glitch.Files.Count)
             : null;
     }
+
+    // 選択中のWASAPIエンドポイントに保存された再生位置補正を返します。
+    private int GetPositionOffset(string sourceId)
+    {
+        return _config.Audio.PositionOffsetsMilliseconds.GetValueOrDefault(sourceId, 0);
+    }
 }
 
 public sealed record RuntimeSnapshot(
@@ -196,6 +206,7 @@ public sealed record RuntimeSnapshot(
     string SelectedInputSourceId,
     string SelectedInputDevice,
     string SelectedInputType,
+    int PositionOffsetMilliseconds,
     double InputLevel,
     double InputDecibels,
     long? TrackId,

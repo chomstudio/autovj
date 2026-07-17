@@ -12,6 +12,7 @@ let latestState = null;
 let registeredTracks = [];
 let testTrackIndex = 0;
 let statusUpdateInProgress = false;
+let loadedOffsetSourceId = null;
 
 // 秒数をモニター向けの分:秒表記へ変換します。
 function formatTime(seconds) {
@@ -89,6 +90,7 @@ async function updateStatus() {
     document.querySelector('#track-name').textContent = state.trackName || '—';
     document.querySelector('#confidence').textContent = `${(state.confidence * 100).toFixed(1)}%`;
     document.querySelector('#position').textContent = formatTime(state.positionSeconds);
+    document.querySelector('#position-offset').textContent = `${state.positionOffsetMilliseconds} ms`;
     document.querySelector('#reference-bpm').textContent = state.referenceBpm === null ? '—' : state.referenceBpm.toFixed(1);
     document.querySelector('#input-bpm').textContent = state.inputBpm === null ? '—' : state.inputBpm.toFixed(1);
     document.querySelector('#tempo-ratio').textContent = state.tempoRatio.toFixed(2);
@@ -102,6 +104,9 @@ async function updateStatus() {
     if (deviceSelect.value !== state.selectedInputSourceId
         && [...deviceSelect.options].some((option) => option.value === state.selectedInputSourceId)) {
       deviceSelect.value = state.selectedInputSourceId;
+    }
+    if (loadedOffsetSourceId !== state.selectedInputSourceId) {
+      await loadPositionOffset();
     }
   } catch (error) {
     statusMessage.textContent = `通信エラー: ${error.message}`;
@@ -128,6 +133,8 @@ function renderBlendModeOptions(settings) {
 // 保存済み設定をフォームへ読み込みます。
 async function loadSettings() {
   const settings = await request('/api/settings');
+  loadedOffsetSourceId = settings.selectedInputSourceId;
+  document.querySelector('#setting-position-offset').value = settings.positionOffsetMilliseconds;
   document.querySelector('#setting-lost-timeout').value = settings.detectionLostTimeoutSeconds;
   document.querySelector('#setting-resync-tolerance').value = settings.resyncToleranceSeconds;
   document.querySelector('#setting-minimum-rate').value = settings.minimumPlaybackRate;
@@ -142,12 +149,21 @@ async function loadSettings() {
   renderBlendModeOptions(settings);
 }
 
+// 入力元を切り替えた際、そのデバイスに紐づく位置補正だけを再読み込みします。
+async function loadPositionOffset() {
+  const settings = await request('/api/settings');
+  loadedOffsetSourceId = settings.selectedInputSourceId;
+  document.querySelector('#setting-position-offset').value = settings.positionOffsetMilliseconds;
+}
+
 // 入力された設定を保存し、サーバーで即時利用できる状態にします。
 async function saveSettings(event) {
   event.preventDefault();
   settingsMessage.hidden = true;
   const selectedModes = [...document.querySelectorAll('input[name="blend-mode"]:checked')].map((input) => input.value);
   const settings = {
+    selectedInputSourceId: deviceSelect.value,
+    positionOffsetMilliseconds: Number(document.querySelector('#setting-position-offset').value),
     detectionLostTimeoutSeconds: Number(document.querySelector('#setting-lost-timeout').value),
     resyncToleranceSeconds: Number(document.querySelector('#setting-resync-tolerance').value),
     minimumPlaybackRate: Number(document.querySelector('#setting-minimum-rate').value),
@@ -189,6 +205,7 @@ function bindActions() {
   deviceSelect.addEventListener('change', async () => {
     try {
       await postJson('/api/capture/device', { sourceId: deviceSelect.value });
+      await loadPositionOffset();
     } catch (error) {
       window.alert(error.message);
     }

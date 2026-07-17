@@ -18,6 +18,7 @@ public sealed class ServerConfig
     public string Host { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 5180;
     public bool AutoOpenBrowser { get; set; } = true;
+    public string LanPin { get; set; } = string.Empty;
 }
 
 public sealed class MediaConfig
@@ -34,6 +35,7 @@ public sealed class AudioConfig
     public string PreferredInputType { get; set; } = "capture";
     public int SampleRate { get; set; } = 11025;
     public int DetectionWindowSeconds { get; set; } = 4;
+    public Dictionary<string, int> PositionOffsetsMilliseconds { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class DetectionConfig

@@ -4,17 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AutoVJ</title>
-  <link rel="stylesheet" href="/style.css?v=m07">
+  <link rel="stylesheet" href="/style.css?v=m08">
 </head>
 <body class="welcome-page">
   <main class="welcome-card">
-    <p class="eyebrow">AUTO VJ / M0.7</p>
+    <p class="eyebrow">AUTO VJ / M0.8</p>
     <h1>AutoVJを開始</h1>
-    <p class="welcome-description">映像出力と操作画面を別々のタブで開きます。</p>
-    <div class="welcome-actions">
+    <p id="welcome-description" class="welcome-description">接続状態を確認しています。</p>
+    <form id="pin-form" class="pin-form" hidden>
+      <label for="pin-input">LAN公開用PIN</label>
+      <input id="pin-input" type="password" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{4}" minlength="4" maxlength="4" required>
+      <button class="primary" type="submit">認証する</button>
+      <p id="pin-error" class="pin-error" role="alert" hidden></p>
+    </form>
+    <p id="authenticated-message" class="authenticated-message" hidden>認証済です</p>
+    <div id="welcome-actions" class="welcome-actions" hidden>
       <a class="button-link primary" href="/output" target="_blank" rel="noopener">再生ページを開く</a>
       <a class="button-link" href="/setting" target="_blank" rel="noopener">設定ページを開く</a>
     </div>
   </main>
+  <script src="/welcome.js?v=m08"></script>
 </body>
 </html>
