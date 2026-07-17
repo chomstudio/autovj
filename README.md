@@ -144,14 +144,21 @@ http://192.168.1.100:5180/
 
 ## 著作権
 
-Copyright (c) 2026 Chom Studio.
-制作者: ちょむ <https://x.com/chom>
+Copyright (c) 2026 Chom Studio.  
 
-AutoVJで使用する音源、動画、演出素材については、利用者自身が使用・上映・配信に必要な権利を確認してください。
+制作者: ちょむ (Chom Studio)  
+x: <https://x.com/chom>  
+Webサイト: <https://chomstudio.com>
 
-FFmpeg、.NETおよびその他の第三者製ソフトウェアの著作権とライセンスは、それぞれの権利者に帰属します。
+- AutoVJで使用する音源、動画、演出素材については、利用者自身が使用・上映・配信に必要な権利を確認してください。
+- FFmpeg、.NETおよびその他の第三者製ソフトウェアの著作権とライセンスは、それぞれの権利者に帰属します。
+- 自動セットアップでは、.NET SDKをMicrosoft公式配布元から取得し、FFmpegのWindows向けLGPLビルドを[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)から取得します。ダウンロードしたFFmpegに付属するライセンス文書は `.tools/ffmpeg` 内に保存されます。
 
-自動セットアップでは、.NET SDKをMicrosoft公式配布元から取得し、FFmpegのWindows向けLGPLビルドを[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)から取得します。ダウンロードしたFFmpegに付属するライセンス文書は `.tools/ffmpeg` 内に保存されます。
+## 免責事項
+
+- 本ソフトウェアは個人開発でありサポートを行うだけの余裕がありません。特に環境固有のトラブルには対応できません。
+- 本ソフトウェアを使用したいかなる不利益についても、制作者ちょむは一切の責任を負いません。
+- 質問には可能な範囲で回答しますが、返信を保証するものではありません。
 
 ## バージョン
 
