@@ -120,7 +120,7 @@ glitch:
 ## 8. API
 
 | メソッド | パス | 内容 |
-|---|---|---|
+| --- | --- | --- |
 | GET | `/api/status` | 最新の入力・検出状態 |
 | GET | `/api/client-config` | Web再生と演出の公開設定 |
 | GET | `/api/settings` | 詳細設定画面の現在値と選択肢 |
