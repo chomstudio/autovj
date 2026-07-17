@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoVJ 映像出力</title>
+  <link rel="stylesheet" href="/style.css?v=m07">
+</head>
+<body class="output-page">
+  <main id="stage" class="stage" aria-label="映像出力">
+    <div id="video-stack" class="video-stack">
+      <video class="output-video" loop muted playsinline preload="auto"></video>
+      <video class="output-video" loop muted playsinline preload="auto"></video>
+      <video id="glitch-video" class="glitch-video" loop muted playsinline preload="metadata"></video>
+    </div>
+    <div id="idle-message" class="idle-message" hidden>汎用動画を読み込めません</div>
+    <button id="fullscreen-button" class="fullscreen-control" type="button">全画面表示</button>
+  </main>
+  <script src="/app.js?v=m07"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoVJ 設定</title>
+  <link rel="stylesheet" href="/style.css?v=m07">
+</head>
+<body class="setting-page">
+  <main class="setting-shell">
+    <header class="setting-header">
+      <div>
+        <p class="eyebrow">AUTO VJ / SETTINGS</p>
+        <h1>検出モニター・設定</h1>
+      </div>
+      <a class="button-link" href="/output" target="_blank" rel="noopener">再生ページを開く</a>
+    </header>
+
+    <section class="status-grid">
+      <div class="status-card">
+        <span id="capture-indicator" class="indicator"></span>
+        <div><p class="label">入力状態</p><p id="status-message">起動中</p></div>
+      </div>
+      <div class="input-controls">
+        <label for="device-select">入力元（録音入力／WASAPIループバック）</label>
+        <select id="device-select"></select>
+        <div class="level-heading"><span>入力信号</span><output id="level-value">-60.0 dB</output></div>
+        <div id="level-meter" class="level-meter" role="meter" aria-label="入力信号レベル" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="level-fill"></span>
+        </div>
+        <button id="capture-toggle-button" class="primary" type="button">一時停止</button>
+      </div>
+    </section>
+
+    <dl class="metrics monitor-metrics">
+      <div><dt>検出曲</dt><dd id="track-name">—</dd></div>
+      <div><dt>信頼度</dt><dd id="confidence">0.0%</dd></div>
+      <div><dt>推定位置</dt><dd id="position">0:00.0</dd></div>
+      <div><dt>基準BPM</dt><dd id="reference-bpm">—</dd></div>
+      <div><dt>入力推定BPM</dt><dd id="input-bpm">—</dd></div>
+      <div><dt>テンポ倍率</dt><dd id="tempo-ratio">1.00</dd></div>
+      <div><dt>動画再生速度</dt><dd id="playback-rate">1.00</dd></div>
+      <div><dt>指紋方式</dt><dd id="fingerprint-method">—</dd></div>
+      <div><dt>次回切替演出</dt><dd id="transition-mode">normal</dd></div>
+    </dl>
+
+    <div class="settings-content page-settings-content">
+      <section class="settings-tracks">
+        <h2>登録動画</h2>
+        <div id="track-list" class="track-list"></div>
+      </section>
+      <form id="settings-form" class="settings-form">
+        <fieldset>
+          <legend>再生・検出</legend>
+          <label>未検出から汎用動画へ戻るまで（秒）
+            <input id="setting-lost-timeout" type="number" min="1" max="120" step="1" required>
+          </label>
+          <label>動画位置の再同期許容差（秒）
+            <input id="setting-resync-tolerance" type="number" min="0.1" max="30" step="0.1" required>
+          </label>
+          <div class="input-pair">
+            <label>再生倍率の下限<input id="setting-minimum-rate" type="number" min="0.1" max="4" step="0.01" required></label>
+            <label>再生倍率の上限<input id="setting-maximum-rate" type="number" min="0.1" max="4" step="0.01" required></label>
+          </div>
+          <div class="input-pair">
+            <label>BPM範囲の下限（以上）<input id="setting-minimum-bpm" type="number" min="20" max="300" step="1" required></label>
+            <label>BPM範囲の上限（未満）<input id="setting-maximum-bpm" type="number" min="40" max="600" step="1" required></label>
+          </div>
+          <p class="field-help">範囲外のBPMは倍テン／半テンとして補正します。全BPMを収められるよう、上限は下限の2倍以上にしてください。</p>
+          <label>グリッチ表示しきい値（%）
+            <input id="setting-glitch-threshold" type="number" min="0" max="100" step="1" required>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>切り替え演出</legend>
+          <label class="check-row"><input id="setting-transition-enabled" type="checkbox">クロスフェードを有効にする</label>
+          <label>切り替え時間（ミリ秒）
+            <input id="setting-transition-duration" type="number" min="0" max="10000" step="100" required>
+          </label>
+          <label class="check-row"><input id="setting-blend-enabled" type="checkbox">ブレンド演出を有効にする</label>
+          <label class="check-row"><input id="setting-randomize-blend" type="checkbox">ブレンドモードをランダム選択する</label>
+          <div><span class="field-label">ブレンドモード</span><div id="blend-mode-options" class="check-grid"></div></div>
+        </fieldset>
+        <p id="settings-message" class="settings-message" role="status" hidden></p>
+        <div class="settings-actions"><button class="primary" type="submit">設定を保存</button></div>
+      </form>
+      <section id="test-controls" class="test-controls" hidden>
+        <h2>UI試験</h2>
+        <button id="test-next-button" type="button">次の登録動画へ切替</button>
+        <button id="test-fallback-button" type="button">汎用動画へ切替</button>
+      </section>
+    </div>
+  </main>
+  <script src="/settings.js?v=m07"></script>
+</body>
+</html>

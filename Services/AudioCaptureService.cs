@@ -11,25 +11,31 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
     private WasapiCapture? _capture;
     private double _resampleAccumulator;
     private double _smoothedLevel;
-    private string _selectedDeviceName = config.Audio.PreferredInput;
+    private string _selectedSourceId = $"{config.Audio.PreferredInputType}:{config.Audio.PreferredInput}";
 
     public bool IsRunning => _capture is not null;
 
-    // Windowsで現在有効な録音エンドポイント名を列挙します。
-    public IReadOnlyList<string> GetDevices()
+    // 録音入力と再生出力のループバック候補を、重複しないID付きで列挙します。
+    public IReadOnlyList<AudioSourceInfo> GetDevices()
     {
         using var enumerator = new MMDeviceEnumerator();
-        return enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
-            .Select(device => device.FriendlyName)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+        var captureSources = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
+            .Select(device => new AudioSourceInfo(
+                $"capture:{device.ID}", device.FriendlyName, "capture", $"録音入力: {device.FriendlyName}"));
+        var loopbackSources = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
+            .Select(device => new AudioSourceInfo(
+                $"loopback:{device.ID}", device.FriendlyName, "loopback", $"ループバック: {device.FriendlyName}"));
+        return captureSources.Concat(loopbackSources)
+            .OrderBy(source => source.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(source => source.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
-    // 指定名または現在選択中のWASAPI録音デバイスから入力監視を開始します。
-    public void Start(string? requestedDeviceName = null)
+    // 指定した録音入力またはWASAPIループバックから音声監視を開始します。
+    public void Start(string? requestedSource = null)
     {
-        var targetName = ResolveDeviceName(requestedDeviceName ?? _selectedDeviceName);
-        if (_capture is not null && _selectedDeviceName.Equals(targetName, StringComparison.OrdinalIgnoreCase))
+        var source = ResolveSource(requestedSource ?? _selectedSourceId);
+        if (_capture is not null && _selectedSourceId.Equals(source.Id, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -39,8 +45,8 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
         }
 
         using var enumerator = new MMDeviceEnumerator();
-        var device = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
-            .First(candidate => candidate.FriendlyName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
+        var endpointId = source.Id[(source.Id.IndexOf(':') + 1)..];
+        var device = enumerator.GetDevice(endpointId);
 
         lock (_sampleLock)
         {
@@ -49,13 +55,16 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
             _smoothedLevel = 0;
         }
 
-        _selectedDeviceName = device.FriendlyName;
-        _capture = new WasapiCapture(device);
+        _selectedSourceId = source.Id;
+        _capture = source.Type == "loopback"
+            ? new WasapiLoopbackCapture(device)
+            : new WasapiCapture(device);
         _capture.DataAvailable += OnDataAvailable;
         _capture.RecordingStopped += OnRecordingStopped;
         _capture.StartRecording();
-        state.SetCapture(true, $"{device.FriendlyName} を監視中", device.FriendlyName);
-        logger.LogInformation("音声入力を開始しました: {Device} / {Format}", device.FriendlyName, _capture.WaveFormat);
+        var modeLabel = source.Type == "loopback" ? "ループバック" : "録音入力";
+        state.SetCapture(true, $"{modeLabel}: {device.FriendlyName} を監視中", source.Id, device.FriendlyName, source.Type);
+        logger.LogInformation("音声入力を開始しました: {Mode} / {Device} / {Format}", modeLabel, device.FriendlyName, _capture.WaveFormat);
     }
 
     // WASAPI録音を停止し、使用中のデバイスを解放します。
@@ -64,6 +73,7 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
         var capture = _capture;
         if (capture is null)
         {
+            state.SetCapture(false, "停止中");
             return;
         }
         capture.StopRecording();
@@ -72,19 +82,19 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
     }
 
     // 選択デバイスを変更し、監視中であれば新しいデバイスで即座に再開します。
-    public void SelectDevice(string deviceName)
+    public void SelectDevice(string sourceId)
     {
-        var resolvedName = ResolveDeviceName(deviceName);
+        var source = ResolveSource(sourceId);
         var wasRunning = IsRunning;
         if (wasRunning)
         {
             Stop();
         }
-        _selectedDeviceName = resolvedName;
-        state.SetSelectedDevice(resolvedName);
+        _selectedSourceId = source.Id;
+        state.SetSelectedDevice(source.Id, source.Name, source.Type);
         if (wasRunning)
         {
-            Start(resolvedName);
+            Start(source.Id);
         }
     }
 
@@ -154,13 +164,27 @@ public sealed class AudioCaptureService(AppConfig config, RuntimeState state, IL
         }
     }
 
-    // 大文字小文字を無視して完全一致、次に部分一致で実在デバイス名を解決します。
-    private string ResolveDeviceName(string requestedName)
+    // APIのIDを優先し、旧設定との互換用に種類と表示名でも入力元を解決します。
+    private AudioSourceInfo ResolveSource(string requestedSource)
     {
-        var devices = GetDevices();
-        var resolved = devices.FirstOrDefault(name => name.Equals(requestedName, StringComparison.OrdinalIgnoreCase))
-            ?? devices.FirstOrDefault(name => name.Contains(requestedName, StringComparison.OrdinalIgnoreCase));
-        return resolved ?? throw new InvalidOperationException($"録音デバイス '{requestedName}' が見つかりません。");
+        var sources = GetDevices();
+        var configuredType = config.Audio.PreferredInputType;
+        var requestedName = requestedSource;
+        if (requestedSource.StartsWith("capture:", StringComparison.OrdinalIgnoreCase)
+            || requestedSource.StartsWith("loopback:", StringComparison.OrdinalIgnoreCase))
+        {
+            var separator = requestedSource.IndexOf(':');
+            configuredType = requestedSource[..separator];
+            requestedName = requestedSource[(separator + 1)..];
+        }
+        var resolved = sources.FirstOrDefault(source => source.Id.Equals(requestedSource, StringComparison.OrdinalIgnoreCase))
+            ?? sources.FirstOrDefault(source =>
+                source.Type.Equals(configuredType, StringComparison.OrdinalIgnoreCase)
+                && source.Name.Equals(requestedName, StringComparison.OrdinalIgnoreCase))
+            ?? sources.FirstOrDefault(source =>
+                source.Type.Equals(configuredType, StringComparison.OrdinalIgnoreCase)
+                && source.Name.Contains(requestedName, StringComparison.OrdinalIgnoreCase));
+        return resolved ?? throw new InvalidOperationException($"音声入力元 '{requestedSource}' が見つかりません。");
     }
 
     // 録音形式に応じて1サンプルを-1から1のfloatへ変換します。

@@ -21,6 +21,10 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// 操作用ウェルカム画面とは別に、拡張子なしの再生・設定URLを提供します。
+app.MapGet("/output", () => Results.File(Path.Combine(app.Environment.WebRootPath, "output.html"), "text/html; charset=utf-8"));
+app.MapGet("/setting", () => Results.File(Path.Combine(app.Environment.WebRootPath, "setting.html"), "text/html; charset=utf-8"));
+
 var database = app.Services.GetRequiredService<DatabaseService>();
 await database.InitializeAsync();
 if ((await database.GetTrackSummariesAsync()).Count == 0)
@@ -65,6 +69,8 @@ app.MapGet("/api/client-config", () => Results.Ok(new
         files = config.Glitch.Files.Select((_, index) => $"/api/material/glitch/{index}").ToArray()
     },
     detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds,
+    minimumPlaybackRate = config.Playback.MinimumRate,
+    maximumPlaybackRate = config.Playback.MaximumRate,
     testApiEnabled = Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1",
     transition = new
     {
@@ -81,6 +87,10 @@ app.MapGet("/api/settings", () => Results.Ok(new
 {
     detectionLostTimeoutSeconds = config.Playback.DetectionLostTimeoutSeconds,
     resyncToleranceSeconds = config.Playback.ResyncToleranceSeconds,
+    minimumPlaybackRate = config.Playback.MinimumRate,
+    maximumPlaybackRate = config.Playback.MaximumRate,
+    minimumBpm = config.Playback.MinimumBpm,
+    maximumBpm = config.Playback.MaximumBpm,
     transitionEnabled = config.Transition.Enabled,
     transitionDurationMilliseconds = config.Transition.DurationMilliseconds,
     blendModesEnabled = config.Transition.BlendModesEnabled,
@@ -91,11 +101,12 @@ app.MapGet("/api/settings", () => Results.Ok(new
 }));
 
 // 詳細設定画面の対象項目をconfig.yamlへ保存し、実行中設定へ即時反映します。
-app.MapPost("/api/settings", (UiSettingsRequest settings) =>
+app.MapPost("/api/settings", (UiSettingsRequest settings, RuntimeState state) =>
 {
     try
     {
         ConfigService.SaveUiSettings(configPath, config, settings);
+        state.ApplySettings();
         return Results.Ok(new { message = "設定を保存して反映しました。" });
     }
     catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
@@ -115,7 +126,7 @@ app.MapPost("/api/capture/start", (AudioDeviceRequest request, AudioCaptureServi
 {
     try
     {
-        capture.Start(request.DeviceName);
+        capture.Start(request.SourceId ?? request.DeviceName);
         return Results.Ok(new { message = "音声入力を開始しました。" });
     }
     catch (Exception exception)
@@ -129,12 +140,18 @@ app.MapPost("/api/capture/device", (AudioDeviceRequest request, AudioCaptureServ
 {
     try
     {
-        if (string.IsNullOrWhiteSpace(request.DeviceName))
+        var requestedSource = request.SourceId ?? request.DeviceName;
+        if (string.IsNullOrWhiteSpace(requestedSource))
         {
-            return Results.BadRequest(new { message = "デバイス名を指定してください。" });
+            return Results.BadRequest(new { message = "入力元を指定してください。" });
         }
-        capture.SelectDevice(request.DeviceName);
-        return Results.Ok(new { message = $"入力デバイスを {request.DeviceName} に変更しました。" });
+        var source = capture.GetDevices().FirstOrDefault(candidate =>
+            candidate.Id.Equals(requestedSource, StringComparison.OrdinalIgnoreCase)
+            || candidate.Name.Equals(requestedSource, StringComparison.OrdinalIgnoreCase));
+        if (source is null) return Results.BadRequest(new { message = "指定された入力元が見つかりません。" });
+        capture.SelectDevice(source.Id);
+        ConfigService.SaveAudioSource(configPath, config, source);
+        return Results.Ok(new { message = $"入力元を {source.Label} に変更しました。" });
     }
     catch (Exception exception)
     {
@@ -215,7 +232,7 @@ if (Environment.GetEnvironmentVariable("AUTOVJ_ENABLE_TEST_API") == "1")
 
 var operationUrl = $"http://{config.Server.Host}:{config.Server.Port}";
 Console.WriteLine($"AutoVJ操作画面: {operationUrl}");
-Console.WriteLine($"音声入力: {config.Audio.PreferredInput}");
+Console.WriteLine($"音声入力: {config.Audio.PreferredInputType} / {config.Audio.PreferredInput}");
 
 // 通常起動では既定デバイスの監視を自動開始し、失敗してもWeb UIは起動します。
 var captureService = app.Services.GetRequiredService<AudioCaptureService>();

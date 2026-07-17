@@ -31,6 +31,7 @@ public sealed class MediaConfig
 public sealed class AudioConfig
 {
     public string PreferredInput { get; set; } = "LINE (Yamaha AG03MK2)";
+    public string PreferredInputType { get; set; } = "capture";
     public int SampleRate { get; set; } = 11025;
     public int DetectionWindowSeconds { get; set; } = 4;
 }
@@ -51,6 +52,10 @@ public sealed class PlaybackConfig
     public int DetectionLostTimeoutSeconds { get; set; } = 10;
     public double ResyncToleranceSeconds { get; set; } = 2;
     public bool RandomizeCommonStart { get; set; } = true;
+    public double MinimumRate { get; set; } = 0.8;
+    public double MaximumRate { get; set; } = 1.2;
+    public double MinimumBpm { get; set; } = 100;
+    public double MaximumBpm { get; set; } = 200;
 }
 
 public sealed class TransitionConfig

@@ -61,6 +61,7 @@ public static class ConfigService
             case "media.material_video_dir": config.Media.MaterialVideoDir = value; break;
             case "media.common_video_file": config.Media.CommonVideoFile = value; break;
             case "audio.preferred_input": config.Audio.PreferredInput = value; break;
+            case "audio.preferred_input_type": config.Audio.PreferredInputType = value; break;
             case "audio.sample_rate": config.Audio.SampleRate = int.Parse(value, culture); break;
             case "audio.detection_window_seconds": config.Audio.DetectionWindowSeconds = int.Parse(value, culture); break;
             case "detection.interval_seconds": config.Detection.IntervalSeconds = int.Parse(value, culture); break;
@@ -73,6 +74,10 @@ public static class ConfigService
             case "playback.detection_lost_timeout_seconds": config.Playback.DetectionLostTimeoutSeconds = int.Parse(value, culture); break;
             case "playback.resync_tolerance_seconds": config.Playback.ResyncToleranceSeconds = double.Parse(value, numberStyle, culture); break;
             case "playback.randomize_common_start": config.Playback.RandomizeCommonStart = bool.Parse(value); break;
+            case "playback.minimum_rate": config.Playback.MinimumRate = double.Parse(value, numberStyle, culture); break;
+            case "playback.maximum_rate": config.Playback.MaximumRate = double.Parse(value, numberStyle, culture); break;
+            case "playback.minimum_bpm": config.Playback.MinimumBpm = double.Parse(value, numberStyle, culture); break;
+            case "playback.maximum_bpm": config.Playback.MaximumBpm = double.Parse(value, numberStyle, culture); break;
             case "transition.enabled": config.Transition.Enabled = bool.Parse(value); break;
             case "transition.duration_ms": config.Transition.DurationMilliseconds = int.Parse(value, culture); break;
             case "transition.blend_modes_enabled": config.Transition.BlendModesEnabled = bool.Parse(value); break;
@@ -92,6 +97,10 @@ public static class ConfigService
     {
         if (settings.DetectionLostTimeoutSeconds is < 1 or > 120) throw new ArgumentOutOfRangeException(nameof(settings.DetectionLostTimeoutSeconds), "未検出待機時間は1〜120秒で指定してください。");
         if (settings.ResyncToleranceSeconds is < 0.1 or > 30) throw new ArgumentOutOfRangeException(nameof(settings.ResyncToleranceSeconds), "再同期許容差は0.1〜30秒で指定してください。");
+        if (settings.MinimumPlaybackRate is < 0.1 or > 4) throw new ArgumentOutOfRangeException(nameof(settings.MinimumPlaybackRate), "再生倍率の下限は0.1〜4倍で指定してください。");
+        if (settings.MaximumPlaybackRate is < 0.1 or > 4 || settings.MaximumPlaybackRate < settings.MinimumPlaybackRate) throw new ArgumentOutOfRangeException(nameof(settings.MaximumPlaybackRate), "再生倍率の上限は下限以上かつ4倍以下で指定してください。");
+        if (settings.MinimumBpm is < 20 or > 300) throw new ArgumentOutOfRangeException(nameof(settings.MinimumBpm), "BPM範囲の下限は20〜300で指定してください。");
+        if (settings.MaximumBpm is <= 20 or > 600 || settings.MaximumBpm < settings.MinimumBpm * 2) throw new ArgumentOutOfRangeException(nameof(settings.MaximumBpm), "BPM範囲の上限は下限の2倍以上かつ600以下で指定してください。");
         if (settings.TransitionDurationMilliseconds is < 0 or > 10000) throw new ArgumentOutOfRangeException(nameof(settings.TransitionDurationMilliseconds), "切り替え時間は0〜10000ミリ秒で指定してください。");
         if (settings.GlitchConfidenceThreshold is < 0 or > 1) throw new ArgumentOutOfRangeException(nameof(settings.GlitchConfidenceThreshold), "グリッチしきい値は0〜1で指定してください。");
 
@@ -108,6 +117,10 @@ public static class ConfigService
         {
             config.Playback.DetectionLostTimeoutSeconds = settings.DetectionLostTimeoutSeconds;
             config.Playback.ResyncToleranceSeconds = settings.ResyncToleranceSeconds;
+            config.Playback.MinimumRate = settings.MinimumPlaybackRate;
+            config.Playback.MaximumRate = settings.MaximumPlaybackRate;
+            config.Playback.MinimumBpm = settings.MinimumBpm;
+            config.Playback.MaximumBpm = settings.MaximumBpm;
             config.Transition.Enabled = settings.TransitionEnabled;
             config.Transition.DurationMilliseconds = settings.TransitionDurationMilliseconds;
             config.Transition.BlendModesEnabled = settings.BlendModesEnabled;
@@ -119,6 +132,10 @@ public static class ConfigService
             {
                 ["playback.detection_lost_timeout_seconds"] = settings.DetectionLostTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
                 ["playback.resync_tolerance_seconds"] = settings.ResyncToleranceSeconds.ToString(CultureInfo.InvariantCulture),
+                ["playback.minimum_rate"] = settings.MinimumPlaybackRate.ToString(CultureInfo.InvariantCulture),
+                ["playback.maximum_rate"] = settings.MaximumPlaybackRate.ToString(CultureInfo.InvariantCulture),
+                ["playback.minimum_bpm"] = settings.MinimumBpm.ToString(CultureInfo.InvariantCulture),
+                ["playback.maximum_bpm"] = settings.MaximumBpm.ToString(CultureInfo.InvariantCulture),
                 ["transition.enabled"] = settings.TransitionEnabled.ToString().ToLowerInvariant(),
                 ["transition.duration_ms"] = settings.TransitionDurationMilliseconds.ToString(CultureInfo.InvariantCulture),
                 ["transition.blend_modes_enabled"] = settings.BlendModesEnabled.ToString().ToLowerInvariant(),
@@ -127,6 +144,21 @@ public static class ConfigService
                 ["glitch.confidence_threshold"] = settings.GlitchConfidenceThreshold.ToString(CultureInfo.InvariantCulture)
             };
             RewriteKnownValues(path, replacements);
+        }
+    }
+
+    // 選択した入力元を次回起動時にも使うため、種類と表示名を設定へ保存します。
+    public static void SaveAudioSource(string path, AppConfig config, AudioSourceInfo source)
+    {
+        lock (SaveLock)
+        {
+            config.Audio.PreferredInput = source.Name;
+            config.Audio.PreferredInputType = source.Type;
+            RewriteKnownValues(path, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["audio.preferred_input"] = $"\"{source.Name.Replace("\"", "\\\"")}\"",
+                ["audio.preferred_input_type"] = source.Type
+            });
         }
     }
 

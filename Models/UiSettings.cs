@@ -3,6 +3,10 @@ namespace AutoVJ.Models;
 public sealed record UiSettingsRequest(
     int DetectionLostTimeoutSeconds,
     double ResyncToleranceSeconds,
+    double MinimumPlaybackRate,
+    double MaximumPlaybackRate,
+    double MinimumBpm,
+    double MaximumBpm,
     bool TransitionEnabled,
     int TransitionDurationMilliseconds,
     bool BlendModesEnabled,

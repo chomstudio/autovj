@@ -10,7 +10,8 @@ media:
   common_video_file: "common_movie.mp4"
 
 audio:
-  preferred_input: "LINE (Yamaha AG03MK2)"
+  preferred_input: "Line (Yamaha AG03MK2)"
+  preferred_input_type: loopback
   sample_rate: 11025
   detection_window_seconds: 4
 
@@ -27,6 +28,10 @@ playback:
   detection_lost_timeout_seconds: 10
   resync_tolerance_seconds: 2
   randomize_common_start: true
+  minimum_rate: 0.8
+  maximum_rate: 1.2
+  minimum_bpm: 100
+  maximum_bpm: 200
 
 transition:
   enabled: true
