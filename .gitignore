@@ -8,3 +8,5 @@ data/*.lock
 *.log
 AGENTS.md
 codex-docs/
+.agents/
+.codex/
