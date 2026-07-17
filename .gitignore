@@ -6,4 +6,5 @@ obj/
 data/*.db
 data/*.lock
 *.log
-
+AGENTS.md
+codex-docs/

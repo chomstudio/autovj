@@ -2,11 +2,11 @@
 
 ## 現在のプロジェクトの状況について
 
-`prototype_spec.md` の内容を読むこと。
+`codex-docs/prototype_spec.md` の内容を読むこと。
 
 ## 次の作業指示について
 
-`prompt.md` の内容を読むこと。
+`codex-docs/prompt.md` の内容を読むこと。
 
 ## 本ファイルの役割
 
