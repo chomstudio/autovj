@@ -47,7 +47,7 @@ transition:
 glitch:
   enabled: true
   confidence_threshold: 0.4
-  files: ["glitch1.mp4", "glitch2.mp4", "glitch3.mp4", "glitch4.mp4"]
+  files: ["glitch1.mp4", "glitch2.mp4", "glitch3.mp4"]
 
 storage:
   database_path: "data/autovj.db"

@@ -9,7 +9,6 @@ LINE入力などの録音デバイスのほか、PCで再生中の音声を取�
 - VJがいないDJイベントで、楽曲に対応した映像を自動再生したい人
 - DJプレイに集中し、映像操作をAutoVJへ任せたい人
 - 手持ちの音源と動画の組み合わせを、PCだけで確認したい人
-- ブラウザやOBSなどへ映像を出力したい人
 
 映像の完全な同期精度より、自動運転と手軽さを優先する用途に適しています。
 
@@ -30,34 +29,6 @@ GitHubからリポジトリを `git clone` したあと、プロジェクトフ�
 setup-and-run.cmd
 ```
 
-スクリプトは次の処理を自動的に行います。
-
-1. 利用可能な .NET 10 SDKを確認し、見つからなければプロジェクト内へダウンロード
-2. Windows 64bit向けのFFmpeg LGPL版をプロジェクト内へダウンロード
-3. 必要なNuGetパッケージをダウンロード
-4. `AutoVJ` と `AutoVJ.Catalog` をRelease構成でビルド
-5. `main-videos` にMP4があれば動画を差分解析
-6. AutoVJを起動
-
-ダウンロードしたツールは `.tools`、ビルド結果は `.build` に保存されます。どちらもGitの管理対象外です。セットアップをやり直しても、動画素材、`config.yaml`、解析済みデータベースは削除されません。
-
-セットアップとビルドだけ行い、AutoVJを起動しない場合はPowerShellから次を実行します。
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-and-run.ps1 -SkipRun
-```
-
-### 手動セットアップ
-
-自動セットアップを使用しない場合は、.NET SDK 10と `ffmpeg`・`ffprobe` を用意し、PATHを設定してください。その後、プロジェクトフォルダで次を実行します。
-
-```powershell
-dotnet restore --source https://api.nuget.org/v3/index.json
-dotnet restore Catalog\AutoVJ.Catalog.csproj --source https://api.nuget.org/v3/index.json
-dotnet publish AutoVJ.csproj --configuration Release --no-restore --output .build\AutoVJ
-dotnet publish Catalog\AutoVJ.Catalog.csproj --configuration Release --no-restore --output .build\Catalog
-```
-
 ## 動画素材の準備
 
 自動セットアップによって作成されたフォルダへ、次のようにMP4を配置します。
@@ -72,14 +43,13 @@ material-videos/
 ├─ common_movie.mp4
 ├─ glitch1.mp4
 ├─ glitch2.mp4
-├─ glitch3.mp4
-└─ glitch4.mp4
+└─ glitch3.mp4
 ```
 
 - `main-videos` には、曲を判定したときに再生するMP4を配置します。
 - 判定に使う音声はMP4内の音声トラックです。別途MP3を用意する必要はありません。
 - `common_movie.mp4` は、曲を検出していないときに再生する動画です。
-- `glitch1.mp4`～`glitch4.mp4` は、検出信頼度が下がったときに重ねる演出素材です。
+- `glitch1.mp4`～`glitch3.mp4` は、検出信頼度が下がったときに重ねる演出素材です。
 - ファイル名や素材フォルダは `config.yaml` で変更できます。
 
 ### 動画を解析する
@@ -174,7 +144,9 @@ http://192.168.1.100:5180/
 
 ## 著作権
 
-Copyright (c) 2026 AutoVJ contributors.
+Copyright (c) 2026 Chom Studio.
+
+連絡先: <https://x.com/chom> (ちょむ)
 
 AutoVJで使用する音源、動画、演出素材については、利用者自身が使用・上映・配信に必要な権利を確認してください。
 
