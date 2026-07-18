@@ -101,7 +101,6 @@ function Install-DotNet10Sdk {
     if (-not (Test-DotNet10Sdk -DotNetPath $localDotNet)) {
         throw "導入した.NET 10 SDKを確認できませんでした。"
     }
-    return $localDotNet
 }
 
 # BtbN配布のWindows向けLGPL版FFmpegをプロジェクト内へ導入します。
@@ -340,7 +339,9 @@ try {
 
     $dotNetPath = Find-DotNet10Sdk
     if ($null -eq $dotNetPath) {
-        $dotNetPath = Install-DotNet10Sdk
+        # インストーラーの表示出力をパスの戻り値へ混入させないよう、導入先を明示的に採用します。
+        Install-DotNet10Sdk
+        $dotNetPath = Join-Path $localDotNetRoot "dotnet.exe"
     }
     else {
         Write-Host "利用可能な.NET 10 SDKを確認しました: $dotNetPath"
