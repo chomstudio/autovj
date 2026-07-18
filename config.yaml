@@ -11,14 +11,13 @@ media:
   common_video_file: "common_movie.mp4"
 
 audio:
-  preferred_input: "Line (Yamaha AG03MK2)"
+  preferred_input: ""
   preferred_input_type: capture
   sample_rate: 11025
   detection_window_seconds: 4
 
 audio_position_offsets:
 
-  "capture:{0.0.1.00000000}.{6c7e92db-1a05-405f-a9a1-cee4db5d65e9}": 1000
 detection:
   interval_seconds: 1
   confidence_threshold: 0.62

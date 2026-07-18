@@ -29,6 +29,12 @@ GitHubからリポジトリを `git clone` したあと、プロジェクトフ�
 setup-and-run.cmd
 ```
 
+## サンプル動画素材のダウンロード
+
+とりあえずAuto VJを試すには、以下からファイルをダウンロードして展開します。
+
+<https://www.dropbox.com/scl/fi/4f70a3n5se64capb0iwue/autovj-samples.zip?rlkey=ooptx8ap980xnnlqokqvg87cd&st=zovs3rdq&dl=0>
+
 ## 動画素材の準備
 
 自動セットアップによって作成されたフォルダへ、次のようにMP4を配置します。
