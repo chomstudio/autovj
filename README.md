@@ -19,7 +19,7 @@ LINE入力などの録音デバイスのほか、PCで再生中の音声を取�
 - MP4を再生できるWebブラウザ
 - LINE入力などの録音デバイス、またはWASAPIループバックを利用できる再生デバイス
 
-初回セットアップスクリプトが、必要に応じて .NET 10 SDK、NuGetパッケージ、`ffmpeg`、`ffprobe` を自動的にダウンロードします。管理者権限やシステム全体のPATH変更は必要ありません。
+初回セットアップスクリプトが、必要に応じて .NET 10 SDK、NuGetパッケージ、`ffmpeg`、`ffprobe`、サンプル動画を自動的にダウンロードします。管理者権限やシステム全体のPATH変更は必要ありません。
 
 ## 自動セットアップ
 
@@ -31,15 +31,11 @@ setup-and-run.cmd
 
 初回セットアップでは、個人用の `config.yaml` が存在しない場合に限り、公開用の `config-default.yaml` から自動的に作成します。すでにある `config.yaml` は上書きしません。
 
-## サンプル動画素材のダウンロード
-
-とりあえずAuto VJを試すには、以下からファイルをダウンロードして展開します。
-
-<https://www.dropbox.com/scl/fi/4f70a3n5se64capb0iwue/autovj-samples.zip?rlkey=ooptx8ap980xnnlqokqvg87cd&st=zovs3rdq&dl=0>
+サンプル動画は[GitHub Release v0.8.0](https://github.com/chomstudio/autovj/releases/tag/v0.8.0)からダウンロードし、SHA-256を検証して配置します。続けて動画解析を実行し、すべて成功した場合だけAutoVJを起動します。既存の動画と同名のサンプルがある場合は、既存ファイルを上書きしません。
 
 ## 動画素材の準備
 
-自動セットアップによって作成されたフォルダへ、次のようにMP4を配置します。
+自動セットアップによってサンプル動画が配置されます。自分の動画を追加する場合は、次のフォルダへMP4を配置します。
 
 ```text
 main-videos/
@@ -115,6 +111,38 @@ http://127.0.0.1:5180/
 run-autovj.cmd --lan --port 5180 --pin 1234
 ```
 
+## テスト
+
+初回セットアップ後は、WASAPIループバックを使うと追加の音声ケーブルなしで動作を確認できます。ループバックは、選択した再生デバイスからPCが出している音をAutoVJへ入力する機能です。
+
+### YouTubeで確認する
+
+1. 音楽プレーヤーなど、テストと関係のない音声を再生しているアプリを停止します。
+2. 設定ページの「入力元」を開きます。
+3. 「ループバック」の一覧から、Windowsが現在音を出しているスピーカーやオーディオインターフェースと同名のデバイスを選択します。
+4. ブラウザの別タブで、次のYouTube動画のいずれかを開いて再生します。広告が表示された場合は、本編が始まるまで待ちます。
+
+   - [星の海へ feat. miki](https://www.youtube.com/watch?v=zvvUbvtleKc)
+   - [エレメンタリー feat. 宮舞モカ](https://www.youtube.com/watch?v=nkMYEFRBFo4)
+   - [Dance! Dance!! Dance!!! feat. 桜乃そら](https://www.youtube.com/watch?v=PIXOMA3gS8E)
+   - [シャニシャニ☆デイズ feat 夏色花梨](https://www.youtube.com/watch?v=IqZ2qcE3XVc)
+   - [オドッテ☆モロテ feat 小春六花](https://www.youtube.com/watch?v=iSWOb-tQPbw)
+
+5. 設定ページの「入力信号」インジケーターが音に合わせて動くことを確認します。
+6. 数秒から十数秒待ち、設定ページに曲名が表示され、再生ページが対応するサンプル動画へ切り替わればテスト成功です。
+
+### YouTubeで確認できない場合
+
+YouTube動画の削除、地域制限、通信状態などの影響を切り分けるには、自動セットアップで導入された `main-videos` 内のMP4をWindowsのメディアプレーヤーなどで再生してください。MP4には判定対象の音声も含まれているため、テスト専用のMP3は必要ありません。
+
+ローカルのMP4でも「入力信号」インジケーターが反応しない場合は、次の項目を確認してください。
+
+- 選択したループバックと、Windowsが実際に音を出しているデバイスが一致している
+- YouTubeのタブ、ブラウザ、Windowsの音量ミキサーがミュートになっていない
+- ブラウザやメディアプレーヤーが、別の出力デバイスへ音を出していない
+- 設定ページで音声入力が一時停止されていない
+- `Windowsの設定 > プライバシーとセキュリティ > マイク` で、デスクトップアプリによるマイクへのアクセスが許可されている
+
 ## LAN公開とPIN
 
 `--lan` を付けて起動すると、同じLAN内のPC、スマートフォン、タブレットからアクセスできます。
@@ -164,7 +192,7 @@ Webサイト: <https://chomstudio.com>
 
 - AutoVJで使用する音源、動画、演出素材については、利用者自身が使用・上映・配信に必要な権利を確認してください。
 - FFmpeg、.NETおよびその他の第三者製ソフトウェアの著作権とライセンスは、それぞれの権利者に帰属します。
-- 自動セットアップでは、.NET SDKをMicrosoft公式配布元から取得し、FFmpegのWindows向けLGPLビルドを[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)から取得します。ダウンロードしたFFmpegに付属するライセンス文書は `.tools/ffmpeg` 内に保存されます。
+- 自動セットアップでは、.NET SDKをMicrosoft公式配布元から取得し、FFmpegのWindows向けLGPLビルドを[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)から取得します。サンプル動画は[AutoVJのGitHub Release](https://github.com/chomstudio/autovj/releases/tag/v0.8.0)から取得します。ダウンロードしたFFmpegに付属するライセンス文書は `.tools/ffmpeg` 内に保存されます。
 
 ## 免責事項
 

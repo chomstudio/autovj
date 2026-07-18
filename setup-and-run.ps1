@@ -16,6 +16,10 @@ $buildRoot = Join-Path $projectRoot ".build"
 $mainBuildRoot = Join-Path $buildRoot "AutoVJ"
 $catalogBuildRoot = Join-Path $buildRoot "Catalog"
 $nugetPackagesRoot = Join-Path $toolsRoot "nuget-packages"
+$sampleArchiveName = "autovj-samples-v0.8.0.zip"
+$sampleDownloadUrl = "https://github.com/chomstudio/autovj/releases/download/v0.8.0/$sampleArchiveName"
+$sampleArchiveSha256 = "223F34CDF9680452B8A6E4B93FD11ABC5E5966901F0124B33C935F9932AEA4F8"
+$sampleInstallMarker = Join-Path $toolsRoot "samples-v0.8.0.installed"
 
 # 処理の区切りを見やすい形式で表示します。
 function Write-Step {
@@ -32,9 +36,11 @@ function Invoke-CheckedCommand {
         [Parameter(Mandatory)][string[]]$Arguments
     )
 
-    & $Executable @Arguments | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Executable の実行に失敗しました。終了コード: $LASTEXITCODE"
+    # ネイティブ出力をPowerShellのパイプで再エンコードせず、コンソールへ直接表示します。
+    & $Executable @Arguments
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "$Executable の実行に失敗しました。終了コード: $exitCode"
     }
 }
 
@@ -211,8 +217,98 @@ function Initialize-UserConfig {
     Write-Host "config-default.yamlからconfig.yamlを作成しました。"
 }
 
-# メイン動画が配置済みなら、初回起動前にカタログを差分解析します。
-function Invoke-InitialCatalogScan {
+# GitHub Releaseから検証済みサンプルを取得し、既存ファイルを保護して配置します。
+function Install-SampleData {
+    $requiredSampleFiles = @(
+        "main-videos\video-e-part.mp4",
+        "main-videos\video-k-part.mp4",
+        "main-videos\video-m-part.mp4",
+        "main-videos\video-o-part.mp4",
+        "main-videos\video-s-part.mp4",
+        "material-videos\common_movie.mp4",
+        "material-videos\glitch1.mp4",
+        "material-videos\glitch2.mp4",
+        "material-videos\glitch3.mp4"
+    )
+    if (Test-Path -LiteralPath $sampleInstallMarker -PathType Leaf) {
+        $installedHash = (Get-Content -LiteralPath $sampleInstallMarker -Raw).Trim()
+        $allSamplesExist = $null -eq (
+            $requiredSampleFiles |
+                Where-Object { -not (Test-Path -LiteralPath (Join-Path $projectRoot $_) -PathType Leaf) } |
+                Select-Object -First 1
+        )
+        if ($installedHash -eq $sampleArchiveSha256 -and $allSamplesExist) {
+            Write-Host "サンプル動画は導入済みです。"
+            return
+        }
+    }
+
+    Write-Step "サンプル動画を準備しています"
+
+    $archivePath = Join-Path $downloadsRoot $sampleArchiveName
+    $extractRoot = Join-Path $toolsRoot "samples-extract"
+    $archiveIsValid = (Test-Path -LiteralPath $archivePath -PathType Leaf) -and
+        ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -eq $sampleArchiveSha256)
+    if ($archiveIsValid) {
+        Write-Host "ダウンロード済みのサンプル書庫を使用します。"
+    }
+    else {
+        Invoke-WebRequest -UseBasicParsing -Uri $sampleDownloadUrl -OutFile $archivePath
+    }
+
+    $downloadedHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
+    if ($downloadedHash -ne $sampleArchiveSha256) {
+        Remove-Item -LiteralPath $archivePath -Force
+        throw "サンプル動画のSHA-256が一致しません。ダウンロードをやり直してください。"
+    }
+
+    if (Test-Path -LiteralPath $extractRoot) {
+        Remove-Item -LiteralPath $extractRoot -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
+    Expand-Archive -LiteralPath $archivePath -DestinationPath $extractRoot -Force
+
+    foreach ($relativePath in $requiredSampleFiles) {
+        $extractedPath = Join-Path $extractRoot $relativePath
+        if (-not (Test-Path -LiteralPath $extractedPath -PathType Leaf)) {
+            throw "サンプル動画の書庫内に必要なファイルがありません: $relativePath"
+        }
+    }
+
+    $copiedCount = 0
+    $unchangedCount = 0
+    $preservedCount = 0
+    foreach ($sourceFile in Get-ChildItem -LiteralPath $extractRoot -File -Recurse) {
+        $relativePath = $sourceFile.FullName.Substring($extractRoot.Length).TrimStart([char[]]"\/")
+        $destinationPath = Join-Path $projectRoot $relativePath
+        $destinationDirectory = Split-Path -Parent $destinationPath
+        New-Item -ItemType Directory -Force -Path $destinationDirectory | Out-Null
+
+        if (Test-Path -LiteralPath $destinationPath -PathType Leaf) {
+            $sourceHash = (Get-FileHash -LiteralPath $sourceFile.FullName -Algorithm SHA256).Hash
+            $destinationHash = (Get-FileHash -LiteralPath $destinationPath -Algorithm SHA256).Hash
+            if ($sourceHash -eq $destinationHash) {
+                $unchangedCount++
+            }
+            else {
+                Write-Warning "既存ファイルを上書きせず保持しました: $relativePath"
+                $preservedCount++
+            }
+            continue
+        }
+
+        Copy-Item -LiteralPath $sourceFile.FullName -Destination $destinationPath
+        $copiedCount++
+    }
+
+    Remove-Item -LiteralPath $extractRoot -Recurse -Force
+    Remove-Item -LiteralPath $archivePath -Force
+    Set-Content -LiteralPath $sampleInstallMarker -Value $sampleArchiveSha256 -Encoding Ascii
+    Write-Host "サンプル動画を配置しました: 新規=$copiedCount / 配置済み=$unchangedCount / 既存優先=$preservedCount"
+}
+
+# サンプル導入後にカタログを解析し、成功しなければAutoVJを起動させません。
+function Invoke-CatalogScan {
     param([Parameter(Mandatory)][string]$DotNetPath)
 
     $mainVideoRoot = Join-Path $projectRoot "main-videos"
@@ -221,8 +317,7 @@ function Invoke-InitialCatalogScan {
             Select-Object -First 1
     )
     if (-not $hasMainVideo) {
-        Write-Host "main-videosにMP4がないため、動画解析は省略します。"
-        return
+        throw "main-videosに解析対象のMP4がありません。"
     }
 
     Write-Step "main-videosの動画を解析しています"
@@ -255,7 +350,8 @@ try {
     Set-ProjectEnvironment -DotNetPath $dotNetPath
     Initialize-ProjectDirectories
     Build-AutoVJ -DotNetPath $dotNetPath
-    Invoke-InitialCatalogScan -DotNetPath $dotNetPath
+    Install-SampleData
+    Invoke-CatalogScan -DotNetPath $dotNetPath
 
     Write-Step "セットアップが完了しました"
     Write-Host "通常起動: run-autovj.cmd"
