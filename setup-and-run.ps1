@@ -194,6 +194,23 @@ function Initialize-ProjectDirectories {
     }
 }
 
+# 個人設定がまだない場合だけ、公開用の初期設定をコピーします。
+function Initialize-UserConfig {
+    $configPath = Join-Path $projectRoot "config.yaml"
+    if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+        Write-Host "既存のconfig.yamlを使用します。"
+        return
+    }
+
+    $defaultConfigPath = Join-Path $projectRoot "config-default.yaml"
+    if (-not (Test-Path -LiteralPath $defaultConfigPath -PathType Leaf)) {
+        throw "公開用設定ファイルが見つかりません: $defaultConfigPath"
+    }
+
+    Copy-Item -LiteralPath $defaultConfigPath -Destination $configPath
+    Write-Host "config-default.yamlからconfig.yamlを作成しました。"
+}
+
 # メイン動画が配置済みなら、初回起動前にカタログを差分解析します。
 function Invoke-InitialCatalogScan {
     param([Parameter(Mandatory)][string]$DotNetPath)
@@ -221,6 +238,7 @@ try {
     }
 
     Write-Step "AutoVJのセットアップを開始します"
+    Initialize-UserConfig
     [Net.ServicePointManager]::SecurityProtocol = `
         [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     New-Item -ItemType Directory -Force -Path $toolsRoot, $downloadsRoot, $nugetPackagesRoot | Out-Null

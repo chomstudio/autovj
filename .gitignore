@@ -14,4 +14,4 @@ codex-docs/
 .codex/
 .tools/
 .build/
-config-custom.yaml
+config.yaml
