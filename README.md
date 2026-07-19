@@ -23,15 +23,21 @@ LINE入力などの録音デバイスのほか、PCで再生中の音声を取�
 
 ## 自動セットアップ
 
-GitHubからリポジトリを `git clone` したあと、プロジェクトフォルダ内の次のファイルをダブルクリックします。
+まず git for Windows を導入済みでない方は、以下からダウンロードしてインストールします。
+
+<https://git-scm.com/install/windows>
+
+インストールが終わったら、コマンドプロンプトを開き、AutoVJをインストールしたいフォルダへ移動してから、以下のコマンドを実行します。
+
+```cmd
+git clone https://github.com/chomstudio/autovj
+```
+
+ソースコードがダウンロードされます。その後 `autovj` フォルダを開き、次のファイルを実行します（エクスプローラーからダブルクリックしても構いません）。
 
 ```text
 setup-and-run.cmd
 ```
-
-初回セットアップでは、個人用の `config.yaml` が存在しない場合に限り、公開用の `config-default.yaml` から自動的に作成します。すでにある `config.yaml` は上書きしません。
-
-サンプル動画は[GitHub Release v0.8.0](https://github.com/chomstudio/autovj/releases/tag/v0.8.0)からダウンロードし、SHA-256を検証して配置します。続けて動画解析を実行し、すべて成功した場合だけAutoVJを起動します。既存の動画と同名のサンプルがある場合は、既存ファイルを上書きしません。
 
 ## 動画素材の準備
 
