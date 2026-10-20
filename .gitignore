@@ -8,10 +8,6 @@ data/*.db-shm
 data/*.db-wal
 data/*.lock
 *.log
-AGENTS.md
-codex-docs/
-.agents/
-.codex/
 .tools/
 .build/
 config.yaml
